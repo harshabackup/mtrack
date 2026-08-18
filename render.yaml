@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: mapptracker-backend
+    env: python
+    region: singapore
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        value: "postgresql://postgres.fxptinoldvmuofabxguw:Slr%400137495@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+      - key: SECRET_KEY
+        value: "super_secret_key_change_me_in_production"
+      - key: CORS_ORIGINS
+        value: "http://localhost:5173,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in"

@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mapp-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mapp_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: mapp-backend
+    restart: always
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres.fxptinoldvmuofabxguw:Slr%400137495@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+      - SECRET_KEY=supersecretkeythatyoushouldchangeinprod
+      - JWT_EXPIRE_MINUTES=1440
+      - ENVIRONMENT=development
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    container_name: mapp-frontend
+    restart: always
+    ports:
+      - "3000:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
