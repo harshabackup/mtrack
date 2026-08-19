@@ -2,13 +2,23 @@ import re
 import os
 import fitz  # PyMuPDF
 from PIL import Image
-import pytesseract
+import requests
 
 def extract_text_from_image(file_path: str) -> str:
     try:
-        img = Image.open(file_path)
-        text = pytesseract.image_to_string(img)
-        return text
+        api_key = os.getenv("OCR_SPACE_API_KEY", "helloworld")
+        with open(file_path, 'rb') as f:
+            payload = {'apikey': api_key, 'OCREngine': '2'}
+            files = {'file': f}
+            response = requests.post('https://api.ocr.space/parse/image', data=payload, files=files, timeout=15)
+            
+        if response.status_code == 200:
+            result = response.json()
+            if not result.get('IsErroredOnProcessing', True) and result.get('ParsedResults'):
+                return result['ParsedResults'][0]['ParsedText']
+            else:
+                print(f"OCR API Error: {result.get('ErrorMessage')}")
+        return ""
     except Exception as e:
         print(f"Error extracting text from image: {e}")
         return ""
