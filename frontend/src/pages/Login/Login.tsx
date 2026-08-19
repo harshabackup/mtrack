@@ -23,6 +23,9 @@ const Login = () => {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
       <div className="card animate-in" style={{ width: '400px', maxWidth: '90%', padding: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <img src="/logo.png" alt="MAPP Logo" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
+        </div>
         <h2 style={{ textAlign: 'center', marginBottom: '8px' }} className="page-title">Welcome Back</h2>
         <p style={{ textAlign: 'center', marginBottom: '32px', color: 'var(--text-secondary)' }}>Sign in to your account</p>
         

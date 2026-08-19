@@ -42,6 +42,9 @@ const Register = () => {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)', padding: '24px' }}>
       <div className="card animate-in" style={{ width: '500px', maxWidth: '100%', padding: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <img src="/logo.png" alt="MAPP Logo" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
+        </div>
         <h2 style={{ textAlign: 'center', marginBottom: '8px' }} className="page-title">Create Account</h2>
         <p style={{ textAlign: 'center', marginBottom: '32px', color: 'var(--text-secondary)' }}>Sign up to manage proposals</p>
         

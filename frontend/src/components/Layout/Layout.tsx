@@ -40,11 +40,7 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
             )}
           </button>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-              <polyline points="2 17 12 22 22 17"></polyline>
-              <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
+            <img src="/logo.png" alt="MAPP Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
             MAPP
           </div>
           
