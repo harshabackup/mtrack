@@ -82,7 +82,8 @@ interface Proposal {
   created_at: string;
   received_date: string | null;
   referred_by: string | null;
-  expectations: string | null;
+  rejection_reason: string | null;
+  reopen_reason: string | null;
 }
 
 const timeAgo = (dateStr: string) => {
@@ -125,6 +126,12 @@ const ProposalDetails = () => {
   const [copyText, setCopyText] = useState("");
   
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'questions' | 'feedback'>('overview');
+
+  // Reason Modal State
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'REOPEN' | null>(null);
+  const [reasonInput, setReasonInput] = useState('');
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -414,13 +421,46 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === 'REJECTED') {
+      setReasonActionType('REJECT');
+      setPendingStatus(newStatus);
+      setReasonInput('');
+      setShowReasonModal(true);
+      return;
+    }
+    
+    if (proposal?.status === 'REJECTED' && newStatus !== 'REJECTED') {
+      setReasonActionType('REOPEN');
+      setPendingStatus(newStatus);
+      setReasonInput('');
+      setShowReasonModal(true);
+      return;
+    }
+
+    executeStatusChange(newStatus);
+  };
+
+  const executeStatusChange = async (newStatus: string, reasonDetails?: { rejection_reason?: string, reopen_reason?: string }) => {
     try {
-      const updatedProposal = { ...proposal, status: newStatus };
+      const updatedProposal = { ...proposal, status: newStatus, ...reasonDetails };
       await api.put(`/api/v1/proposals/${id}`, updatedProposal);
       setProposal(updatedProposal as Proposal);
+      setShowReasonModal(false);
     } catch (error) {
       console.error("Error updating status", error);
       alert("Failed to update status");
+    }
+  };
+
+  const submitReasonModal = () => {
+    if (!reasonInput.trim()) {
+      alert("Please provide a reason.");
+      return;
+    }
+    if (reasonActionType === 'REJECT') {
+      executeStatusChange(pendingStatus!, { rejection_reason: reasonInput });
+    } else if (reasonActionType === 'REOPEN') {
+      executeStatusChange(pendingStatus!, { reopen_reason: reasonInput });
     }
   };
 
@@ -443,6 +483,17 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
             Back to Proposals
           </button>
         </div>
+        
+        {proposal.status === 'REJECTED' && proposal.rejection_reason && (
+          <div style={{ marginBottom: '24px', background: 'rgba(255, 59, 48, 0.1)', border: '1px solid rgba(255, 59, 48, 0.3)', padding: '16px 24px', borderRadius: 'var(--radius-md)', color: '#FF3B30', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <div>
+              <strong style={{ display: 'block', marginBottom: '4px' }}>Proposal Rejected</strong>
+              <span>{proposal.rejection_reason}</span>
+            </div>
+          </div>
+        )}
+        
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px', background: 'var(--bg-body)', padding: '32px', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: '1 1 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
@@ -995,6 +1046,38 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
               <button className="btn btn-outline" onClick={() => setShowCopyModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={copyFullText}>Copy Fully</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reason Modal */}
+      {showReasonModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card animate-in" style={{ width: '90%', maxWidth: '500px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0 }}>
+                {reasonActionType === 'REJECT' ? 'Reject Proposal' : 'Reopen Proposal'}
+              </h3>
+              <button onClick={() => setShowReasonModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>&times;</button>
+            </div>
+            
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.875rem' }}>
+              {reasonActionType === 'REJECT' 
+                ? 'Please provide a reason for rejecting this proposal. This will be shown on the profile.' 
+                : 'Please provide a justification for reopening this previously rejected proposal.'}
+            </p>
+            
+            <textarea 
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              placeholder="Enter reason here..."
+              style={{ width: '100%', height: '120px', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: '0.95rem', resize: 'vertical', marginBottom: '24px' }}
+            />
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+              <button className="btn btn-outline" onClick={() => setShowReasonModal(false)}>Cancel</button>
+              <button className={`btn btn-${reasonActionType === 'REJECT' ? 'danger' : 'primary'}`} onClick={submitReasonModal}>Confirm</button>
             </div>
           </div>
         </div>

@@ -63,7 +63,8 @@ class Proposal(Base):
     age = Column(Integer, nullable=True)
     current_city = Column(String, nullable=True)
     status = Column(String, default="IN_PROGRESS") # IN_PROGRESS, SHORTLISTED, DISCUSSION, PARENTS_MEET, FINALIZED, REJECTED
-    
+    rejection_reason = Column(String, nullable=True)
+    reopen_reason = Column(String, nullable=True)    
     vendor = relationship("Vendor", back_populates="proposals")
     
     # Personal Info Expansion

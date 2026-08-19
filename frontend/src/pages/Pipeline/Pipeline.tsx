@@ -26,6 +26,13 @@ const Pipeline = () => {
   const [loading, setLoading] = useState(true);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Reason Modal State
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'REOPEN' | null>(null);
+  const [reasonInput, setReasonInput] = useState('');
+  const [pendingDrop, setPendingDrop] = useState<{ proposalId: number, targetStatus: string } | null>(null);
+
   const navigate = useNavigate();
 
   const fetchProposals = async () => {
@@ -66,16 +73,54 @@ const Pipeline = () => {
     if (!proposalIdStr) return;
     const proposalId = parseInt(proposalIdStr);
 
+    const proposal = proposals.find(p => p.id === proposalId);
+    if (!proposal) return;
+
+    if (targetStatus === 'REJECTED') {
+      setReasonActionType('REJECT');
+      setPendingDrop({ proposalId, targetStatus });
+      setReasonInput('');
+      setShowReasonModal(true);
+      return;
+    }
+    
+    if (proposal.status === 'REJECTED' && targetStatus !== 'REJECTED') {
+      setReasonActionType('REOPEN');
+      setPendingDrop({ proposalId, targetStatus });
+      setReasonInput('');
+      setShowReasonModal(true);
+      return;
+    }
+
+    executeDrop(proposalId, targetStatus);
+  };
+
+  const executeDrop = async (proposalId: number, targetStatus: string, reasonDetails?: { rejection_reason?: string, reopen_reason?: string }) => {
     // Optimistic UI update
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: targetStatus } : p));
 
     try {
       // Backend update
-      await api.put(`/api/v1/proposals/${proposalId}`, { status: targetStatus });
+      await api.put(`/api/v1/proposals/${proposalId}`, { status: targetStatus, ...reasonDetails });
+      setShowReasonModal(false);
     } catch (error) {
       console.error("Error updating status:", error);
       // Revert if failed
       fetchProposals();
+    }
+  };
+
+  const submitReasonModal = () => {
+    if (!reasonInput.trim()) {
+      alert("Please provide a reason.");
+      return;
+    }
+    if (!pendingDrop) return;
+    
+    if (reasonActionType === 'REJECT') {
+      executeDrop(pendingDrop.proposalId, pendingDrop.targetStatus, { rejection_reason: reasonInput });
+    } else if (reasonActionType === 'REOPEN') {
+      executeDrop(pendingDrop.proposalId, pendingDrop.targetStatus, { reopen_reason: reasonInput });
     }
   };
 
@@ -214,6 +259,38 @@ const Pipeline = () => {
           )
         })}
       </div>
+
+      {/* Reason Modal */}
+      {showReasonModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card animate-in" style={{ width: '90%', maxWidth: '500px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0 }}>
+                {reasonActionType === 'REJECT' ? 'Reject Proposal' : 'Reopen Proposal'}
+              </h3>
+              <button onClick={() => setShowReasonModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>&times;</button>
+            </div>
+            
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.875rem' }}>
+              {reasonActionType === 'REJECT' 
+                ? 'Please provide a reason for rejecting this proposal. This will be shown on the profile.' 
+                : 'Please provide a justification for reopening this previously rejected proposal.'}
+            </p>
+            
+            <textarea 
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              placeholder="Enter reason here..."
+              style={{ width: '100%', height: '120px', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: '0.95rem', resize: 'vertical', marginBottom: '24px' }}
+            />
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+              <button className="btn btn-outline" onClick={() => setShowReasonModal(false)}>Cancel</button>
+              <button className={`btn btn-${reasonActionType === 'REJECT' ? 'danger' : 'primary'}`} onClick={submitReasonModal}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

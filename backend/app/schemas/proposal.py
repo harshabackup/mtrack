@@ -54,6 +54,8 @@ class ProposalBase(BaseModel):
     age: Optional[int] = None
     current_city: Optional[str] = None
     status: Optional[str] = "IN_PROGRESS"
+    rejection_reason: Optional[str] = None
+    reopen_reason: Optional[str] = None
     
     # Personal Info Expansion
     dob: Optional[str] = None
