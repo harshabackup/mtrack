@@ -125,7 +125,7 @@ def delete_proposal(proposal_id: int, db: Session = Depends(get_db), current_use
     return None
 
 @router.post("/{proposal_id}/upload")
-def upload_file(
+async def upload_file(
     proposal_id: int,
     file_type: str, # "photo" or "pdf"
     file: UploadFile = File(...),
@@ -137,16 +137,13 @@ def upload_file(
     if file_type not in ["photo", "pdf"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Must be 'photo' or 'pdf'")
         
-    storage_dir = os.path.join("storage", str(current_user.vendor_id), str(proposal_id))
-    os.makedirs(storage_dir, exist_ok=True)
+    file_bytes = await file.read()
+    filename = f"{current_user.vendor_id}/{proposal_id}/{uuid.uuid4().hex[:8]}_{file.filename}"
     
-    filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
-    file_path = os.path.join(storage_dir, filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    from ..core.storage import upload_file_to_supabase
+    url = upload_file_to_supabase(file_bytes, filename, file.content_type or "application/octet-stream")
         
     # Update DB
-    url = f"/storage/{current_user.vendor_id}/{proposal_id}/{filename}"
     if file_type == "photo":
         new_photo = ProposalPhoto(proposal_id=proposal_id, photo_url=url)
         db.add(new_photo)
@@ -164,13 +161,20 @@ def delete_file(
     current_user: User = Depends(require_vendor)
 ):
     db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
-        
-    if file_type != "pdf":
+    
+    if file_type == "pdf":
+        if db_proposal.pdf_url:
+            filename = db_proposal.pdf_url.split("/")[-1]
+            path = f"{current_user.vendor_id}/{proposal_id}/{filename}"
+            from ..core.storage import delete_file_from_supabase
+            delete_file_from_supabase(path)
+            
+            db_proposal.pdf_url = None
+            db.commit()
+            return {"message": "PDF deleted successfully"}
+        return {"message": "No PDF found"}
+    else:
         raise HTTPException(status_code=400, detail="Invalid file type")
-        
-    db_proposal.pdf_url = None
-    db.commit()
-    return {"message": f"{file_type} deleted successfully"}
 
 @router.delete("/{proposal_id}/photo/{photo_id}")
 def delete_photo(
@@ -180,12 +184,17 @@ def delete_photo(
     current_user: User = Depends(require_vendor)
 ):
     db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    photo = db.query(ProposalPhoto).filter(ProposalPhoto.id == photo_id, ProposalPhoto.proposal_id == proposal_id).first()
     
-    db_photo = db.query(ProposalPhoto).filter(ProposalPhoto.id == photo_id, ProposalPhoto.proposal_id == proposal_id).first()
-    if not db_photo:
+    if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
         
-    db.delete(db_photo)
+    filename = photo.photo_url.split("/")[-1]
+    path = f"{current_user.vendor_id}/{proposal_id}/{filename}"
+    from ..core.storage import delete_file_from_supabase
+    delete_file_from_supabase(path)
+    
+    db.delete(photo)
     db.commit()
     return {"message": "Photo deleted successfully"}
 

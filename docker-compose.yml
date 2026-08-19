@@ -25,6 +25,8 @@ services:
       - SECRET_KEY=supersecretkeythatyoushouldchangeinprod
       - JWT_EXPIRE_MINUTES=1440
       - ENVIRONMENT=development
+      - SUPABASE_URL=https://fxptinoldvmuofabxguw.supabase.co
+      - SUPABASE_SERVICE_KEY=your_supabase_service_role_key_here
     depends_on:
       - db
     volumes:

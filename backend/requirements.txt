@@ -13,3 +13,5 @@ httpx
 python-dotenv
 psycopg2-binary
 PyMuPDF
+supabase
+gotrue
