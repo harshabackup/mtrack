@@ -40,8 +40,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             vendor_id: response.data.vendor_id
           });
         })
-        .catch(() => {
-          localStorage.removeItem('token');
+        .catch((error) => {
+          // Only log out if it's explicitly an auth error (401/403). 
+          // Don't log out if the server is just sleeping (502/504) or on network timeout.
+          if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            localStorage.removeItem('token');
+          }
         })
         .finally(() => {
           setLoading(false);
