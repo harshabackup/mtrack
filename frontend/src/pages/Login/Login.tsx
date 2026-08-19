@@ -8,15 +8,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
     try {
       await api.post('/api/v1/auth/login', { email });
       navigate('/verify-otp', { state: { email } });
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Account not found. Please register first.');
+      setIsSubmitting(false);
     }
   };
 
@@ -54,9 +57,33 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)} 
               required 
               placeholder="admin@mapp.com"
+              disabled={isSubmitting}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', marginBottom: '16px' }}>Sign In</button>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ width: '100%', padding: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+                Signing In...
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+          
+          <style>{`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
           
           <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
             Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 500, textDecoration: 'none' }}>Register here</Link>
