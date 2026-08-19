@@ -16,6 +16,10 @@ class ProposalDiscussionBase(BaseModel):
 class ProposalDiscussionCreate(ProposalDiscussionBase):
     created_at: Optional[datetime] = None
 
+class ProposalDiscussionUpdate(BaseModel):
+    status_stage: Optional[str] = None
+    note: Optional[str] = None
+
 class ProposalDiscussionResponse(ProposalDiscussionBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -30,6 +34,11 @@ class ProposalQuestionBase(BaseModel):
 class ProposalQuestionCreate(ProposalQuestionBase):
     created_at: Optional[datetime] = None
 
+class ProposalQuestionUpdate(BaseModel):
+    asked_by: Optional[str] = None
+    question_text: Optional[str] = None
+    expectations: Optional[str] = None
+
 class ProposalQuestionResponse(ProposalQuestionBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -42,6 +51,10 @@ class ProposalFeedbackBase(BaseModel):
 
 class ProposalFeedbackCreate(ProposalFeedbackBase):
     created_at: Optional[datetime] = None
+
+class ProposalFeedbackUpdate(BaseModel):
+    feedback_from: Optional[str] = None
+    message: Optional[str] = None
 
 class ProposalFeedbackResponse(ProposalFeedbackBase):
     model_config = ConfigDict(from_attributes=True)

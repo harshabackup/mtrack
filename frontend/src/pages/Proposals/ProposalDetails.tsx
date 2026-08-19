@@ -133,6 +133,17 @@ const ProposalDetails = () => {
   const [reasonInput, setReasonInput] = useState('');
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
+  // Edit Log State
+  const [editItemType, setEditItemType] = useState<'DISCUSSION' | 'QUESTION' | 'FEEDBACK' | null>(null);
+  const [editItemId, setEditItemId] = useState<number | null>(null);
+  const [editDiscStage, setEditDiscStage] = useState('');
+  const [editDiscNote, setEditDiscNote] = useState('');
+  const [editQAskedBy, setEditQAskedBy] = useState('');
+  const [editQText, setEditQText] = useState('');
+  const [editQExp, setEditQExp] = useState('');
+  const [editFFrom, setEditFFrom] = useState('');
+  const [editFMessage, setEditFMessage] = useState('');
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -461,6 +472,57 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
       executeStatusChange(pendingStatus!, { rejection_reason: reasonInput });
     } else if (reasonActionType === 'REOPEN') {
       executeStatusChange(pendingStatus!, { reopen_reason: reasonInput });
+    }
+  };
+
+  const openEditModal = (type: 'DISCUSSION' | 'QUESTION' | 'FEEDBACK', item: any) => {
+    setEditItemType(type);
+    setEditItemId(item.id);
+    
+    if (type === 'DISCUSSION') {
+      setEditDiscStage(item.status_stage);
+      setEditDiscNote(item.note);
+    } else if (type === 'QUESTION') {
+      setEditQAskedBy(item.asked_by);
+      setEditQText(item.question_text);
+      setEditQExp(item.expectations || '');
+    } else if (type === 'FEEDBACK') {
+      setEditFFrom(item.feedback_from);
+      setEditFMessage(item.message);
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editItemId || !editItemType) return;
+    try {
+      if (editItemType === 'DISCUSSION') {
+        await api.put(`/api/v1/proposals/${id}/discussions/${editItemId}`, { status_stage: editDiscStage, note: editDiscNote });
+      } else if (editItemType === 'QUESTION') {
+        await api.put(`/api/v1/proposals/${id}/questions/${editItemId}`, { asked_by: editQAskedBy, question_text: editQText, expectations: editQExp });
+      } else if (editItemType === 'FEEDBACK') {
+        await api.put(`/api/v1/proposals/${id}/feedbacks/${editItemId}`, { feedback_from: editFFrom, message: editFMessage });
+      }
+      const response = await api.get(`/api/v1/proposals/${id}`);
+      setProposal(response.data);
+      setEditItemType(null);
+    } catch (error) {
+      console.error("Error updating item", error);
+      alert("Failed to update item");
+    }
+  };
+
+  const handleDeleteItem = async (type: 'DISCUSSION' | 'QUESTION' | 'FEEDBACK', itemId: number) => {
+    if (!window.confirm("Are you sure you want to delete this log?")) return;
+    try {
+      if (type === 'DISCUSSION') await api.delete(`/api/v1/proposals/${id}/discussions/${itemId}`);
+      else if (type === 'QUESTION') await api.delete(`/api/v1/proposals/${id}/questions/${itemId}`);
+      else if (type === 'FEEDBACK') await api.delete(`/api/v1/proposals/${id}/feedbacks/${itemId}`);
+      
+      const response = await api.get(`/api/v1/proposals/${id}`);
+      setProposal(response.data);
+    } catch (error) {
+      console.error("Error deleting item", error);
+      alert("Failed to delete item");
     }
   };
 
@@ -810,9 +872,13 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                         <span className={`badge badge-${disc.status_stage === 'FINALIZED' ? 'success' : disc.status_stage === 'REJECTED' ? 'danger' : 'secondary'}`} style={{ fontSize: '0.875rem' }}>
                           Moved to: {disc.status_stage}
                         </span>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                          {new Date(disc.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(disc.created_at)})
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                            {new Date(disc.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(disc.created_at)})
+                          </span>
+                          <button onClick={() => openEditModal('DISCUSSION', disc)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                          <button onClick={() => handleDeleteItem('DISCUSSION', disc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
                       </div>
                       <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{disc.note}</p>
                     </div>
@@ -901,9 +967,13 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                         <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
                           Asked by: <span style={{ color: 'var(--accent-primary)' }}>{q.asked_by}</span>
                         </span>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                          {new Date(q.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(q.created_at)})
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                            {new Date(q.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(q.created_at)})
+                          </span>
+                          <button onClick={() => openEditModal('QUESTION', q)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                          <button onClick={() => handleDeleteItem('QUESTION', q.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
                       </div>
                       
                       <div style={{ marginBottom: '12px' }}>
@@ -993,9 +1063,13 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                         <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
                           From: <span style={{ color: 'var(--accent-primary)' }}>{f.feedback_from}</span>
                         </span>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                          {new Date(f.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(f.created_at)})
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                            {new Date(f.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} ({timeAgo(f.created_at)})
+                          </span>
+                          <button onClick={() => openEditModal('FEEDBACK', f)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                          <button onClick={() => handleDeleteItem('FEEDBACK', f.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
                       </div>
                       
                       <div style={{ marginBottom: '4px' }}>
@@ -1078,6 +1152,77 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
               <button className="btn btn-outline" onClick={() => setShowReasonModal(false)}>Cancel</button>
               <button className={`btn btn-${reasonActionType === 'REJECT' ? 'danger' : 'primary'}`} onClick={submitReasonModal}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Item Modal */}
+      {editItemType && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card animate-in" style={{ width: '90%', maxWidth: '600px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0 }}>
+                Edit {editItemType === 'DISCUSSION' ? 'Discussion' : editItemType === 'QUESTION' ? 'Question' : 'Feedback'}
+              </h3>
+              <button onClick={() => setEditItemType(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>&times;</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              {editItemType === 'DISCUSSION' && (
+                <>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Update Stage To:</label>
+                    <select className="input-field" value={editDiscStage} onChange={(e) => setEditDiscStage(e.target.value)}>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="CONTACTED">Contacted</option>
+                      <option value="SHORTLISTED">Shortlisted</option>
+                      <option value="PARENTS_MEET">Parents Meet</option>
+                      <option value="FINALIZED">Finalized</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Detailed Discussion Notes</label>
+                    <textarea className="input-field" style={{ minHeight: '150px', resize: 'vertical' }} value={editDiscNote} onChange={(e) => setEditDiscNote(e.target.value)} required />
+                  </div>
+                </>
+              )}
+
+              {editItemType === 'QUESTION' && (
+                <>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Who Asked?</label>
+                    <input type="text" className="input-field" value={editQAskedBy} onChange={(e) => setEditQAskedBy(e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Question / Query</label>
+                    <textarea className="input-field" style={{ minHeight: '80px', resize: 'vertical' }} value={editQText} onChange={(e) => setEditQText(e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Expectations (Optional)</label>
+                    <textarea className="input-field" style={{ minHeight: '80px', resize: 'vertical' }} value={editQExp} onChange={(e) => setEditQExp(e.target.value)} />
+                  </div>
+                </>
+              )}
+
+              {editItemType === 'FEEDBACK' && (
+                <>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Feedback From</label>
+                    <input type="text" className="input-field" value={editFFrom} onChange={(e) => setEditFFrom(e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600 }}>Feedback Message</label>
+                    <textarea className="input-field" style={{ minHeight: '120px', resize: 'vertical' }} value={editFMessage} onChange={(e) => setEditFMessage(e.target.value)} required />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+              <button className="btn btn-outline" onClick={() => setEditItemType(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleEditSubmit}>Save Changes</button>
             </div>
           </div>
         </div>

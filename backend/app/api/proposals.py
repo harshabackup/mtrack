@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from ..core.database import get_db
 from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback
-from ..schemas.proposal import ProposalCreate, ProposalUpdate, ProposalResponse, ProposalDiscussionCreate, ProposalDiscussionResponse, ProposalQuestionCreate, ProposalQuestionResponse, ProposalFeedbackCreate, ProposalFeedbackResponse
+from ..schemas.proposal import (
+    ProposalCreate, ProposalUpdate, ProposalResponse,
+    ProposalDiscussionCreate, ProposalDiscussionUpdate, ProposalDiscussionResponse,
+    ProposalQuestionCreate, ProposalQuestionUpdate, ProposalQuestionResponse,
+    ProposalFeedbackCreate, ProposalFeedbackUpdate, ProposalFeedbackResponse
+)
 from ..core.permissions import require_vendor, get_current_user
 from ..models.user import User
 import shutil
@@ -295,3 +300,117 @@ def add_feedback(
     db.commit()
     db.refresh(new_f)
     return new_f
+
+@router.put("/{proposal_id}/discussions/{discussion_id}", response_model=ProposalDiscussionResponse)
+def update_discussion(
+    proposal_id: int,
+    discussion_id: int,
+    discussion_update: ProposalDiscussionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_discussion = db.query(ProposalDiscussion).filter(ProposalDiscussion.id == discussion_id, ProposalDiscussion.proposal_id == proposal_id).first()
+    if not db_discussion:
+        raise HTTPException(status_code=404, detail="Discussion not found")
+        
+    update_data = discussion_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_discussion, key, value)
+        
+    if discussion_update.status_stage:
+        db_proposal.status = discussion_update.status_stage
+        
+    db.commit()
+    db.refresh(db_discussion)
+    return db_discussion
+
+@router.delete("/{proposal_id}/discussions/{discussion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_discussion(
+    proposal_id: int,
+    discussion_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_discussion = db.query(ProposalDiscussion).filter(ProposalDiscussion.id == discussion_id, ProposalDiscussion.proposal_id == proposal_id).first()
+    if not db_discussion:
+        raise HTTPException(status_code=404, detail="Discussion not found")
+        
+    db.delete(db_discussion)
+    db.commit()
+    return None
+
+@router.put("/{proposal_id}/questions/{question_id}", response_model=ProposalQuestionResponse)
+def update_question(
+    proposal_id: int,
+    question_id: int,
+    question_update: ProposalQuestionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_question = db.query(ProposalQuestion).filter(ProposalQuestion.id == question_id, ProposalQuestion.proposal_id == proposal_id).first()
+    if not db_question:
+        raise HTTPException(status_code=404, detail="Question not found")
+        
+    update_data = question_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_question, key, value)
+        
+    db.commit()
+    db.refresh(db_question)
+    return db_question
+
+@router.delete("/{proposal_id}/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_question(
+    proposal_id: int,
+    question_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_question = db.query(ProposalQuestion).filter(ProposalQuestion.id == question_id, ProposalQuestion.proposal_id == proposal_id).first()
+    if not db_question:
+        raise HTTPException(status_code=404, detail="Question not found")
+        
+    db.delete(db_question)
+    db.commit()
+    return None
+
+@router.put("/{proposal_id}/feedbacks/{feedback_id}", response_model=ProposalFeedbackResponse)
+def update_feedback(
+    proposal_id: int,
+    feedback_id: int,
+    feedback_update: ProposalFeedbackUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_feedback = db.query(ProposalFeedback).filter(ProposalFeedback.id == feedback_id, ProposalFeedback.proposal_id == proposal_id).first()
+    if not db_feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+        
+    update_data = feedback_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_feedback, key, value)
+        
+    db.commit()
+    db.refresh(db_feedback)
+    return db_feedback
+
+@router.delete("/{proposal_id}/feedbacks/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_feedback(
+    proposal_id: int,
+    feedback_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_feedback = db.query(ProposalFeedback).filter(ProposalFeedback.id == feedback_id, ProposalFeedback.proposal_id == proposal_id).first()
+    if not db_feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+        
+    db.delete(db_feedback)
+    db.commit()
+    return None
