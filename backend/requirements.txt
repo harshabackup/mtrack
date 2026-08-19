@@ -13,4 +13,3 @@ httpx
 python-dotenv
 psycopg2-binary
 PyMuPDF
-requests
