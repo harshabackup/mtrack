@@ -111,7 +111,7 @@ const ProposalList = () => {
           <h2 style={{ margin: '0 0 4px 0', fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Proposals Directory</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Smart search and advanced filtering.</p>
         </div>
-        <Link to="/proposals/add" className="btn btn-primary" style={{ padding: '8px 16px' }}>
+        <Link to="/vendor/proposals/add" className="btn btn-primary" style={{ padding: '8px 16px' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Add Proposal
         </Link>
@@ -220,7 +220,7 @@ const ProposalList = () => {
             </thead>
             <tbody>
               {proposals.map((p) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.2s', cursor: 'pointer' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'} onClick={() => { window.location.href = `/proposals/${p.id}` }}>
+                <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.2s', cursor: 'pointer' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'} onClick={() => { window.location.href = `/vendor/proposals/${p.id}` }}>
                   <td style={{ padding: '12px 20px' }}>
                     <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: p.photos && p.photos.length > 0 ? '#000' : 'var(--bg-hover)', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {p.photos && p.photos.length > 0 ? (
@@ -268,7 +268,7 @@ const ProposalList = () => {
                     </div>
                   </td>
                   <td style={{ padding: '12px 20px', textAlign: 'right' }}>
-                    <Link to={`/proposals/${p.id}`} className="btn btn-outline" style={{ padding: '6px 16px', fontSize: '0.8rem', fontWeight: 600 }} onClick={(e) => e.stopPropagation()}>View Profile</Link>
+                    <Link to={`/vendor/proposals/${p.id}`} className="btn btn-outline" style={{ padding: '6px 16px', fontSize: '0.8rem', fontWeight: 600 }} onClick={(e) => e.stopPropagation()}>View Profile</Link>
                   </td>
                 </tr>
               ))}
