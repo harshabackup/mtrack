@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
@@ -113,6 +113,7 @@ class Proposal(Base):
     discussions = relationship("ProposalDiscussion", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalDiscussion.created_at.desc()")
     questions = relationship("ProposalQuestion", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalQuestion.created_at.desc()")
     feedbacks = relationship("ProposalFeedback", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalFeedback.created_at.desc()")
+    expenses = relationship("ProposalExpense", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalExpense.date.desc()")
     
     pdf_url = Column(String, nullable=True)
     # Proposal Source & Expectations
@@ -122,3 +123,17 @@ class Proposal(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class ProposalExpense(Base):
+    __tablename__ = "proposal_expenses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="CASCADE"), index=True)
+    category = Column(String, nullable=False) # e.g. Engagement, Katnam, Food
+    description = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    paid_by = Column(String, nullable=True) # e.g. Groom's Side, Bride's Side, Shared
+    date = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    proposal = relationship("Proposal", back_populates="expenses")

@@ -18,6 +18,7 @@ import EditProposal from './pages/Proposals/EditProposal';
 import CompareProposals from './pages/Compare/CompareProposals';
 import Pipeline from './pages/Pipeline/Pipeline';
 import Settings from './pages/Settings/Settings';
+import WeddingPlanner from './pages/WeddingPlanner/WeddingPlanner';
 
 // Admin Pages (Assuming similar placeholders for now)
 const AdminDashboard = () => <div style={{padding: '24px'}}><h2>Admin Dashboard</h2><p>Platform wide statistics will go here.</p></div>;
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
           { path: "proposals/add", element: <AddProposal /> },
           { path: "proposals/:id", element: <ProposalDetails /> },
           { path: "proposals/:id/edit", element: <EditProposal /> },
+          { path: "proposals/:id/planner", element: <WeddingPlanner /> },
           { path: "compare", element: <CompareProposals /> },
           { path: "settings", element: <Settings /> },
           { path: "", element: <Navigate to="/vendor/dashboard" replace /> }

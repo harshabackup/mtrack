@@ -62,6 +62,29 @@ class ProposalFeedbackResponse(ProposalFeedbackBase):
     proposal_id: int
     created_at: datetime
 
+class ProposalExpenseBase(BaseModel):
+    category: str
+    description: str
+    amount: float
+    paid_by: Optional[str] = None
+    date: datetime
+
+class ProposalExpenseCreate(ProposalExpenseBase):
+    pass
+
+class ProposalExpenseUpdate(BaseModel):
+    category: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    paid_by: Optional[str] = None
+    date: Optional[datetime] = None
+
+class ProposalExpenseResponse(ProposalExpenseBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    proposal_id: int
+    created_at: datetime
+
 class ProposalBase(BaseModel):
     name: str
     age: Optional[int] = None
@@ -136,3 +159,4 @@ class ProposalResponse(ProposalBase):
     discussions: List[ProposalDiscussionResponse] = []
     questions: List[ProposalQuestionResponse] = []
     feedbacks: List[ProposalFeedbackResponse] = []
+    expenses: List[ProposalExpenseResponse] = []

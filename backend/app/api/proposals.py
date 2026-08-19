@@ -7,7 +7,8 @@ from ..schemas.proposal import (
     ProposalCreate, ProposalUpdate, ProposalResponse,
     ProposalDiscussionCreate, ProposalDiscussionUpdate, ProposalDiscussionResponse,
     ProposalQuestionCreate, ProposalQuestionUpdate, ProposalQuestionResponse,
-    ProposalFeedbackCreate, ProposalFeedbackUpdate, ProposalFeedbackResponse
+    ProposalFeedbackCreate, ProposalFeedbackUpdate, ProposalFeedbackResponse,
+    ProposalExpenseCreate, ProposalExpenseUpdate, ProposalExpenseResponse
 )
 from ..core.permissions import require_vendor, get_current_user
 from ..models.user import User
@@ -412,5 +413,67 @@ def delete_feedback(
         raise HTTPException(status_code=404, detail="Feedback not found")
         
     db.delete(db_feedback)
+    db.commit()
+    return None
+
+@router.post("/{proposal_id}/expenses", response_model=ProposalExpenseResponse)
+def add_expense(
+    proposal_id: int,
+    expense: ProposalExpenseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    from ..models.proposal import ProposalExpense
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    
+    new_expense = ProposalExpense(
+        proposal_id=proposal_id,
+        category=expense.category,
+        description=expense.description,
+        amount=expense.amount,
+        paid_by=expense.paid_by,
+        date=expense.date
+    )
+    db.add(new_expense)
+    db.commit()
+    db.refresh(new_expense)
+    return new_expense
+
+@router.put("/{proposal_id}/expenses/{expense_id}", response_model=ProposalExpenseResponse)
+def update_expense(
+    proposal_id: int,
+    expense_id: int,
+    expense_update: ProposalExpenseUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    from ..models.proposal import ProposalExpense
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_expense = db.query(ProposalExpense).filter(ProposalExpense.id == expense_id, ProposalExpense.proposal_id == proposal_id).first()
+    if not db_expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    update_data = expense_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_expense, key, value)
+        
+    db.commit()
+    db.refresh(db_expense)
+    return db_expense
+
+@router.delete("/{proposal_id}/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_expense(
+    proposal_id: int,
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    from ..models.proposal import ProposalExpense
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_expense = db.query(ProposalExpense).filter(ProposalExpense.id == expense_id, ProposalExpense.proposal_id == proposal_id).first()
+    if not db_expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    db.delete(db_expense)
     db.commit()
     return None
