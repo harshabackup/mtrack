@@ -69,25 +69,25 @@ const Dashboard = () => {
       </div>
       
       {/* Modern KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
         
         {/* Total */}
         <div className="card kpi-card" style={{ background: 'linear-gradient(135deg, rgba(255,107,53,0.05) 0%, rgba(255,107,53,0.1) 100%)', border: '1px solid rgba(255,107,53,0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h5 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600 }}>Total Proposals</h5>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,107,53,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
           </div>
           <h3 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{total}</h3>
         </div>
         
-        {/* In Progress */}
+        {/* Active Proposals */}
         <div className="card kpi-card" style={{ background: 'linear-gradient(135deg, rgba(52,199,89,0.05) 0%, rgba(52,199,89,0.1) 100%)', border: '1px solid rgba(52,199,89,0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h5 style={{ margin: 0, color: '#34C759', fontSize: '0.875rem', fontWeight: 600 }}>In Progress</h5>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(52,199,89,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34C759' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             </div>
           </div>
           <h3 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 800, color: '#34C759' }}>{inProgressCount}</h3>
@@ -116,7 +116,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
+      <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
         
         {/* Modern Sleek List */}
         <div className="card" style={{ padding: '0' }}>

@@ -206,6 +206,7 @@ const ProposalList = () => {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflowX: 'auto', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="data-table-wrapper">
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-hover)' }}>
@@ -273,6 +274,7 @@ const ProposalList = () => {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>
