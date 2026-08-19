@@ -3,6 +3,7 @@ import os
 import fitz  # PyMuPDF
 from PIL import Image
 import pytesseract
+from datetime import datetime
 
 def extract_text_from_image(file_path: str) -> str:
     try:
@@ -39,7 +40,17 @@ def parse_astrology_data(text: str) -> dict:
     # Try to extract DOB (Looking for common date formats DD-MM-YYYY, DD/MM/YYYY)
     dob_match = re.search(r'(?:Date of Birth|DOB|D.O.B)[\s:]*([\d]{1,2}[-/][\d]{1,2}[-/][\d]{2,4})', text, re.IGNORECASE)
     if dob_match:
-        data['dob'] = dob_match.group(1).strip()
+        raw_dob = dob_match.group(1).strip()
+        formatted_dob = raw_dob
+        # Convert DD-MM-YYYY or DD/MM/YYYY to YYYY-MM-DD
+        clean_dob = raw_dob.replace('/', '-')
+        for fmt in ('%d-%m-%Y', '%d-%m-%y'):
+            try:
+                formatted_dob = datetime.strptime(clean_dob, fmt).strftime('%Y-%m-%d')
+                break
+            except ValueError:
+                pass
+        data['dob'] = formatted_dob
 
     # Try to extract Time of Birth
     time_match = re.search(r'(?:Time of Birth|TOB|Time)[\s:]*([\d]{1,2}:[\d]{2}\s*(?:AM|PM|am|pm)?)', text, re.IGNORECASE)
