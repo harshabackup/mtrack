@@ -221,7 +221,7 @@ def verify_otp(req: OTPVerify, db: Session = Depends(get_db)):
         "access_token": access_token, 
         "token_type": "bearer",
         "user_id": user.id,
-        "role": role.name,
+        "role": role.name if role else "USER",
         "vendor_id": user.vendor_id
     }
 
