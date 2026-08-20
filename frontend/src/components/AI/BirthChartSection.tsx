@@ -79,6 +79,12 @@ const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData }) 
       }
     });
     
+    text += `\nBhava (House) Chart:\n`;
+    text += `House\tSign\tDegree\tSign Lord\tPlanets In House\tAspected By\n`;
+    chart.houses.forEach(h => {
+      text += `H${h.number}\t${h.sign}\t${h.degree.toFixed(2)}°\t${h.sign_lord}\t${h.planets_in_house.length > 0 ? h.planets_in_house.join(', ') : 'None'}\t${h.aspected_by.length > 0 ? h.aspected_by.join(', ') : 'None'}\n`;
+    });
+    
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

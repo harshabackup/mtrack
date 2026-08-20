@@ -88,7 +88,7 @@ class ChatSession(Base):
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    messages = relationship("ChatMessage", back_populates="session", order_by="ChatMessage.created_at")
+    messages = relationship("ChatMessage", back_populates="session")
     proposal = relationship("Proposal", lazy="joined")
 
 
