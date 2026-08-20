@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import api from '../../services/api';
 
 interface PersonalityData {
   personality_summary: string;
@@ -17,7 +16,7 @@ interface PersonalitySectionProps {
   isAnalyzing?: boolean;
 }
 
-const PersonalitySection: React.FC<PersonalitySectionProps> = ({ proposalId, preloadedData, isAnalyzing }) => {
+const PersonalitySection: React.FC<PersonalitySectionProps> = ({ preloadedData, isAnalyzing }) => {
   const [data, setData] = useState<PersonalityData | null>(null);
 
   React.useEffect(() => {

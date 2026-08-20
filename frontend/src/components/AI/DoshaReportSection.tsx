@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import api from '../../services/api';
 
 interface DoshaData {
   manglik_status: string;
@@ -29,7 +28,7 @@ const severityColor = (s: string) => {
   }
 };
 
-const DoshaReportSection: React.FC<DoshaReportSectionProps> = ({ proposalId, preloadedData, isAnalyzing }) => {
+const DoshaReportSection: React.FC<DoshaReportSectionProps> = ({ preloadedData, isAnalyzing }) => {
   const [data, setData] = useState<DoshaData | null>(null);
 
   React.useEffect(() => {

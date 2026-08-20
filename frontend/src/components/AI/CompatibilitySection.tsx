@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import api from '../../services/api';
 
 interface CompatibilityReportData {
   guna_scores: Record<string, number>;
@@ -49,7 +48,7 @@ const verdictColors: Record<string, string> = {
   'Poor': '#FF3B30',
 };
 
-const CompatibilitySection: React.FC<CompatibilitySectionProps> = ({ proposalId1, proposalId2, name1, name2, preloadedData, isAnalyzing }) => {
+const CompatibilitySection: React.FC<CompatibilitySectionProps> = ({ preloadedData, isAnalyzing }) => {
   const [ashtakoota, setAshtakoota] = useState<AshtakootaData | null>(null);
   const [report, setReport] = useState<CompatibilityReportData | null>(null);
 

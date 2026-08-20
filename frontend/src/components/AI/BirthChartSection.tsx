@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
-
+import React, { useState } from 'react';
 interface PlanetData {
   longitude: number;
   sign: string;
@@ -51,14 +49,41 @@ const elementColor: Record<string, string> = {
   water: '#7B1FA2',
 };
 
-const BirthChartSection: React.FC<BirthChartSectionProps> = ({ proposalId, dob, tob, pob, preloadedData }) => {
+const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData }) => {
   const [chart, setChart] = useState<ChartData | null>(null);
+
+  const [copied, setCopied] = useState(false);
 
   React.useEffect(() => {
     if (preloadedData) {
       setChart(preloadedData);
     }
   }, [preloadedData]);
+
+  const handleCopy = () => {
+    if (!chart) return;
+    
+    let text = `Vedic Birth Chart\n`;
+    if (chart.birth_details) {
+      text += `DOB: ${chart.birth_details.dob || 'N/A'}, TOB: ${chart.birth_details.tob || 'N/A'}, POB: ${chart.birth_details.pob || 'N/A'}\n`;
+    }
+    text += `Lagna: ${chart.lagna_sign} | Moon: ${chart.moon_sign} (${chart.moon_nakshatra} P${chart.moon_nakshatra_pada})\n\n`;
+    
+    text += `Planetary Positions:\n`;
+    text += `Planet\tSign\tDegree\tNakshatra\tHouse\tStatus\n`;
+    
+    planetOrder.forEach(pName => {
+      const p = chart.planets[pName];
+      if (p) {
+        text += `${pName}\t${p.sign}\t${p.degree.toFixed(2)}°\t${p.nakshatra} (P${p.pada})\tH${p.house}\t${p.is_retrograde ? 'Retro' : 'Direct'}\n`;
+      }
+    });
+    
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   if (!chart) {
     return (
@@ -78,15 +103,41 @@ const BirthChartSection: React.FC<BirthChartSectionProps> = ({ proposalId, dob, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div className="card" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h4 style={{ margin: 0, color: 'var(--accent-primary)' }}>
-            Vedic Birth Chart {chart.source === 'fallback' && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(simplified calculation)</span>}
-          </h4>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h4 style={{ margin: 0, color: 'var(--accent-primary)' }}>
+              Vedic Birth Chart {chart.source === 'fallback' && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(simplified calculation)</span>}
+            </h4>
+            <button 
+              onClick={handleCopy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: '6px',
+                background: copied ? 'var(--success-bg, #e8f5e9)' : 'var(--bg-secondary)',
+                color: copied ? 'var(--success, #2e7d32)' : 'var(--text-secondary)',
+                border: '1px solid', borderColor: copied ? 'var(--success-border, #c8e6c9)' : 'var(--border)',
+                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500,
+                transition: 'all 0.2s'
+              }}
+            >
+              {copied ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  Copied
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
             <span>Lagna: <strong style={{ color: 'var(--text-primary)' }}>{chart.lagna_sign}</strong></span>
             <span>Moon: <strong style={{ color: 'var(--text-primary)' }}>{chart.moon_sign} ({chart.moon_nakshatra} P{chart.moon_nakshatra_pada})</strong></span>
           </div>
           {chart.birth_details ? (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', width: '100%' }}>
               {chart.birth_details.dob}{chart.birth_details.tob ? ` • ${chart.birth_details.tob}` : ''}{chart.birth_details.pob ? ` • ${chart.birth_details.pob}` : ''}
             </div>
           ) : null}
