@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from ..core.database import get_db
-from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback
+from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback, ProposalMedicalRecord
 from ..schemas.proposal import (
     ProposalCreate, ProposalUpdate, ProposalResponse,
     ProposalDiscussionCreate, ProposalDiscussionUpdate, ProposalDiscussionResponse,
@@ -61,6 +61,36 @@ def get_proposals(
     proposals = query.offset(skip).limit(limit).all()
     return proposals
 
+@router.get("/compare")
+def compare_proposals(
+    ids: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+    if len(id_list) < 2:
+        raise HTTPException(status_code=400, detail="Must provide at least two proposal IDs to compare")
+        
+    proposals = db.query(Proposal).filter(Proposal.id.in_(id_list), Proposal.vendor_id == current_user.vendor_id).all()
+    
+    if len(proposals) != len(id_list):
+        raise HTTPException(status_code=404, detail="One or more proposals not found or access denied")
+        
+    proposal_dict = {p.id: p for p in proposals}
+    ordered_proposals = [proposal_dict[pid] for pid in id_list]
+    
+    base_proposal = ordered_proposals[0]
+    
+    from ..services.compatibility import calculate_compatibility
+    compatibility_matrix = calculate_compatibility(base_proposal, ordered_proposals[1:])
+    
+    serialized_proposals = [ProposalResponse.model_validate(p).model_dump() for p in ordered_proposals]
+    
+    return {
+        "proposals": serialized_proposals,
+        "compatibility": compatibility_matrix
+    }
+
 @router.post("/", response_model=ProposalResponse, status_code=status.HTTP_201_CREATED)
 def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
     proposal_data = proposal.model_dump(exclude_unset=True)
@@ -71,6 +101,16 @@ def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), cur
         
     proposal_data['vendor_id'] = current_user.vendor_id
     proposal_data['created_by'] = current_user.id
+    
+    # Auto-calculate Rasi and Nakshatra if missing but DOB and TOB are present
+    if proposal_data.get('dob') and proposal_data.get('tob'):
+        if not proposal_data.get('rasi') or not proposal_data.get('nakshatra'):
+            from ..services.astrology import calculate_nakshatra_and_rasi
+            rasi, nakshatra = calculate_nakshatra_and_rasi(proposal_data['dob'], proposal_data['tob'])
+            if rasi and not proposal_data.get('rasi'):
+                proposal_data['rasi'] = rasi
+            if nakshatra and not proposal_data.get('nakshatra'):
+                proposal_data['nakshatra'] = nakshatra
     
     db_proposal = Proposal(**proposal_data)
     db.add(db_proposal)
@@ -104,6 +144,20 @@ def update_proposal(proposal_id: int, proposal: ProposalUpdate, db: Session = De
     update_data = proposal.model_dump(exclude_unset=True)
     photo_urls = update_data.pop('photo_urls', None)
     
+    # Auto-calculate Rasi and Nakshatra if missing but DOB and TOB are present
+    final_dob = update_data.get('dob', db_proposal.dob)
+    final_tob = update_data.get('tob', db_proposal.tob)
+    final_rasi = update_data.get('rasi', db_proposal.rasi)
+    final_nakshatra = update_data.get('nakshatra', db_proposal.nakshatra)
+    
+    if final_dob and final_tob and (not final_rasi or not final_nakshatra):
+        from ..services.astrology import calculate_nakshatra_and_rasi
+        rasi, nakshatra = calculate_nakshatra_and_rasi(final_dob, final_tob)
+        if rasi and not final_rasi:
+            update_data['rasi'] = rasi
+        if nakshatra and not final_nakshatra:
+            update_data['nakshatra'] = nakshatra
+            
     for key, value in update_data.items():
         setattr(db_proposal, key, value)
         
@@ -134,8 +188,8 @@ async def upload_file(
 ):
     db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
         
-    if file_type not in ["photo", "pdf"]:
-        raise HTTPException(status_code=400, detail="Invalid file type. Must be 'photo' or 'pdf'")
+    if file_type not in ["photo", "pdf", "medical_record"]:
+        raise HTTPException(status_code=400, detail="Invalid file type. Must be 'photo', 'pdf', or 'medical_record'")
         
     file_bytes = await file.read()
     filename = f"{current_user.vendor_id}/{proposal_id}/{uuid.uuid4().hex[:8]}_{file.filename}"
@@ -147,6 +201,9 @@ async def upload_file(
     if file_type == "photo":
         new_photo = ProposalPhoto(proposal_id=proposal_id, photo_url=url)
         db.add(new_photo)
+    elif file_type == "medical_record":
+        new_record = ProposalMedicalRecord(proposal_id=proposal_id, record_url=url, record_name=file.filename)
+        db.add(new_record)
     else:
         db_proposal.pdf_url = url
         
@@ -197,6 +254,29 @@ def delete_photo(
     db.delete(photo)
     db.commit()
     return {"message": "Photo deleted successfully"}
+
+@router.delete("/{proposal_id}/medical-records/{record_id}")
+def delete_medical_record(
+    proposal_id: int,
+    record_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    record = db.query(ProposalMedicalRecord).filter(ProposalMedicalRecord.id == record_id, ProposalMedicalRecord.proposal_id == proposal_id).first()
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Medical record not found")
+        
+    filename = record.record_url.split("/")[-1]
+    path = f"{current_user.vendor_id}/{proposal_id}/{filename}"
+    from ..core.storage import delete_file_from_supabase
+    delete_file_from_supabase(path)
+    
+    db.delete(record)
+    db.commit()
+    return {"message": "Medical record deleted successfully"}
+
 
 @router.post("/ocr/extract")
 def extract_ocr_from_file(

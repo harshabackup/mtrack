@@ -3,10 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import OCRReviewModal from '../../components/ocr/OCRReviewModal';
 import CustomDateTimePicker from '../../components/CustomDateTimePicker';
+import MedicalRecordsTab from '../../components/MedicalRecords/MedicalRecordsTab';
 
 interface ProposalPhoto {
   id: number;
   photo_url: string;
+}
+
+interface ProposalMedicalRecord {
+  id: number;
+  record_url: string;
+  record_name: string | null;
+  created_at: string;
 }
 
 interface ProposalQuestion {
@@ -75,6 +83,7 @@ interface Proposal {
   instagram_id: string | null;
   
   photos: ProposalPhoto[];
+  medical_records: ProposalMedicalRecord[];
   discussions: ProposalDiscussion[];
   questions: ProposalQuestion[];
   feedbacks: ProposalFeedback[];
@@ -82,6 +91,7 @@ interface Proposal {
   created_at: string;
   received_date: string | null;
   referred_by: string | null;
+  expectations: string | null;
   rejection_reason: string | null;
   reopen_reason: string | null;
 }
@@ -125,11 +135,11 @@ const ProposalDetails = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyText, setCopyText] = useState("");
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'questions' | 'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'questions' | 'feedback' | 'medical_records' | 'ai_intelligence'>('overview');
 
   // Reason Modal State
   const [showReasonModal, setShowReasonModal] = useState(false);
-  const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'REOPEN' | null>(null);
+  const [reasonActionType, setReasonActionType] = useState<'REJECT' | 'REOPEN' | 'DELETE_REJECT' | null>(null);
   const [reasonInput, setReasonInput] = useState('');
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
@@ -270,9 +280,10 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
       // Refresh proposal to get new photos/pdf
       const response = await api.get(`/api/v1/proposals/${id}`);
       setProposal(response.data);
-    } catch (error) {
-      console.error("Error uploading file", error);
-      alert("Failed to upload file");
+    } catch (error: any) {
+      console.error('Error uploading file', error);
+      const detail = error.response?.data?.detail || error.message;
+      alert(`Failed to upload file: ${detail}`);
     }
   };
 
@@ -284,9 +295,10 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
           ...prev,
           photos: prev.photos.filter(p => p.id !== photoId)
         } : null);
-      } catch (error) {
-        console.error("Error deleting photo", error);
-        alert("Failed to delete photo");
+      } catch (error: any) {
+        console.error('Error deleting photo', error);
+        const detail = error.response?.data?.detail || error.message;
+        alert(`Failed to delete photo: ${detail}`);
       }
     }
   };
@@ -299,6 +311,42 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
       } catch (error) {
         console.error("Error deleting PDF", error);
         alert("Failed to delete PDF");
+      }
+    }
+  };
+
+  const handleUploadMedicalRecord = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    try {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      await api.post(`/api/v1/proposals/${id}/upload?file_type=medical_record`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      const response = await api.get(`/api/v1/proposals/${id}`);
+      setProposal(response.data);
+    } catch (error: any) {
+      console.error('Error uploading medical record', error);
+      const detail = error.response?.data?.detail || error.message;
+      alert(`Failed to upload medical record: ${detail}`);
+    }
+  };
+
+  const handleDeleteMedicalRecord = async (recordId: number) => {
+    if (window.confirm(`Are you sure you want to remove this medical record?`)) {
+      try {
+        await api.delete(`/api/v1/proposals/${id}/medical-records/${recordId}`);
+        setProposal(prev => prev ? {
+          ...prev,
+          medical_records: prev.medical_records.filter(r => r.id !== recordId)
+        } : null);
+      } catch (error: any) {
+        console.error('Error deleting medical record', error);
+        const detail = error.response?.data?.detail || error.message;
+        alert(`Failed to delete medical record: ${detail}`);
       }
     }
   };
@@ -464,7 +512,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
   };
 
   const submitReasonModal = () => {
-    if (!reasonInput.trim()) {
+    if (!reasonInput.trim() && reasonActionType !== 'DELETE_REJECT') {
       alert("Please provide a reason.");
       return;
     }
@@ -472,6 +520,26 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
       executeStatusChange(pendingStatus!, { rejection_reason: reasonInput });
     } else if (reasonActionType === 'REOPEN') {
       executeStatusChange(pendingStatus!, { reopen_reason: reasonInput });
+    }
+  };
+
+  const handleEditRejection = () => {
+    setReasonActionType('REJECT');
+    setPendingStatus('REJECTED');
+    setReasonInput(proposal?.rejection_reason || '');
+    setShowReasonModal(true);
+  };
+
+  const handleDeleteRejection = async () => {
+    if (window.confirm("Are you sure you want to delete the rejection reason?")) {
+      try {
+        const updatedProposal = { ...proposal, rejection_reason: null };
+        await api.put(`/api/v1/proposals/${id}`, updatedProposal);
+        setProposal(updatedProposal as Proposal);
+      } catch (error) {
+        console.error("Error deleting rejection reason", error);
+        alert("Failed to delete rejection reason");
+      }
     }
   };
 
@@ -547,11 +615,29 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
         </div>
         
         {proposal.status === 'REJECTED' && proposal.rejection_reason && (
-          <div style={{ marginBottom: '24px', background: 'rgba(255, 59, 48, 0.1)', border: '1px solid rgba(255, 59, 48, 0.3)', padding: '16px 24px', borderRadius: 'var(--radius-md)', color: '#FF3B30', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <div>
-              <strong style={{ display: 'block', marginBottom: '4px' }}>Proposal Rejected</strong>
-              <span>{proposal.rejection_reason}</span>
+          <div style={{ marginBottom: '24px', background: 'rgba(255, 59, 48, 0.1)', border: '1px solid rgba(255, 59, 48, 0.3)', padding: '16px 24px', borderRadius: 'var(--radius-md)', color: '#FF3B30', display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              <div>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>Proposal Rejected</strong>
+                <span>{proposal.rejection_reason}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={handleEditRejection}
+                style={{ background: 'transparent', border: '1px solid rgba(255, 59, 48, 0.5)', borderRadius: 'var(--radius-sm)', padding: '6px 12px', color: '#FF3B30', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Edit
+              </button>
+              <button 
+                onClick={handleDeleteRejection}
+                style={{ background: 'transparent', border: '1px solid rgba(255, 59, 48, 0.5)', borderRadius: 'var(--radius-sm)', padding: '6px 12px', color: '#FF3B30', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Delete
+              </button>
             </div>
           </div>
         )}
@@ -678,7 +764,33 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
           onClick={() => setActiveTab('feedback')}
           style={{ background: 'none', border: 'none', borderBottom: activeTab === 'feedback' ? '2px solid var(--accent-primary)' : '2px solid transparent', padding: '8px 16px', cursor: 'pointer', fontWeight: activeTab === 'feedback' ? 600 : 400, color: activeTab === 'feedback' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
         >Log Feedback</button>
+        <button 
+          onClick={() => setActiveTab('medical_records')}
+          style={{ background: 'none', border: 'none', borderBottom: activeTab === 'medical_records' ? '2px solid var(--accent-primary)' : '2px solid transparent', padding: '8px 16px', cursor: 'pointer', fontWeight: activeTab === 'medical_records' ? 600 : 400, color: activeTab === 'medical_records' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
+        >Medical Records</button>
+        <button 
+          onClick={() => setActiveTab('ai_intelligence')}
+          style={{ background: 'none', border: 'none', borderBottom: activeTab === 'ai_intelligence' ? '2px solid var(--accent-primary)' : '2px solid transparent', padding: '8px 16px', cursor: 'pointer', fontWeight: activeTab === 'ai_intelligence' ? 600 : 400, color: activeTab === 'ai_intelligence' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
+        >✨ AI Intelligence</button>
       </div>
+
+      {activeTab === 'medical_records' && (
+        <MedicalRecordsTab 
+          proposalId={proposal.id}
+          records={proposal.medical_records || []}
+          onUpdate={() => {
+            api.get(`/api/v1/proposals/${id}`).then(res => setProposal(res.data));
+          }}
+        />
+      )}
+
+      {activeTab === 'ai_intelligence' && (
+        <React.Suspense fallback={<div>Loading AI...</div>}>
+          <div style={{ marginTop: '24px' }}>
+            {React.createElement(React.lazy(() => import('../../components/AI/IntelligenceDashboard')), { proposalId: Number(id), proposal })}
+          </div>
+        </React.Suspense>
+      )}
 
       {activeTab === 'overview' && (
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
@@ -778,7 +890,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                 proposal.photos.map(photo => (
                   <div key={photo.id} style={{ position: 'relative' }}>
                     <img 
-                      src={`${backendUrl}${photo.photo_url}`} 
+                      src={photo.photo_url.startsWith('http') ? photo.photo_url : `${backendUrl}${photo.photo_url}`} 
                       alt="Proposal" 
                       style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }} 
                     />
@@ -811,7 +923,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
               {proposal.pdf_url ? (
                 <div>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <a href={`${backendUrl}${proposal.pdf_url}`} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ flex: 1 }}>View PDF</a>
+                    <a href={proposal.pdf_url.startsWith('http') ? proposal.pdf_url : `${backendUrl}${proposal.pdf_url}`} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ flex: 1 }}>View PDF</a>
                     <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => handleTriggerOCR('pdf')} disabled={ocrLoading}>
                       {ocrLoading ? 'Extracting...' : 'Smart Extract'}
                     </button>
@@ -1109,6 +1221,56 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                   <p style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>No feedbacks logged yet.</p>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Use the form on the left to start tracking feedback from both sides.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {activeTab === 'medical_records' && (
+      <div className="card" style={{ marginTop: '24px' }}>
+        <h3 style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+          Medical Records
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ background: 'var(--bg-body)', padding: '24px', borderRadius: 'var(--radius-lg)' }}>
+            <h4 style={{ marginBottom: '16px' }}>Upload Medical Record</h4>
+            <div className="file-upload-wrapper" style={{ position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Upload PDF or Image
+              </button>
+              <input 
+                type="file" 
+                accept="application/pdf,image/*"
+                onChange={handleUploadMedicalRecord}
+                style={{ fontSize: '100px', position: 'absolute', left: 0, top: 0, opacity: 0, cursor: 'pointer' }} 
+              />
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ marginBottom: '16px' }}>Uploaded Records</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+              {proposal.medical_records && proposal.medical_records.length > 0 ? (
+                proposal.medical_records.map(record => (
+                  <div key={record.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px', background: 'var(--bg-body)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span style={{ fontSize: '0.875rem', textAlign: 'center', wordBreak: 'break-all', fontWeight: 500 }}>{record.record_name || 'Medical Record'}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(record.created_at).toLocaleDateString()}</span>
+                    <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: 'auto' }}>
+                      <a href={record.record_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.8rem', display: 'flex', justifyContent: 'center' }}>View</a>
+                      <button onClick={() => handleDeleteMedicalRecord(record.id)} className="btn btn-danger" style={{ flex: 1, padding: '4px', fontSize: '0.8rem', display: 'flex', justifyContent: 'center', background: 'rgba(255,59,48,0.1)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.3)' }}>Delete</button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ gridColumn: '1 / -1', padding: '32px', textAlign: 'center', background: 'var(--bg-body)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)' }}>
+                  <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>No medical records uploaded yet.</p>
                 </div>
               )}
             </div>

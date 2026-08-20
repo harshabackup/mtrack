@@ -19,6 +19,7 @@ const nakshatraOptions = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashir
 const ProposalList = () => {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   
   // Filter States
   const [searchName, setSearchName] = useState('');
@@ -111,10 +112,21 @@ const ProposalList = () => {
           <h2 style={{ margin: '0 0 4px 0', fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Proposals Directory</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Smart search and advanced filtering.</p>
         </div>
-        <Link to="/vendor/proposals/add" className="btn btn-primary" style={{ padding: '8px 16px' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Add Proposal
-        </Link>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {selectedIds.length > 1 && (
+            <button 
+              className="btn btn-primary" 
+              style={{ padding: '8px 16px', background: 'var(--accent-secondary)' }}
+              onClick={() => window.location.href = `/vendor/proposals/compare?ids=${selectedIds.join(',')}`}
+            >
+              Compare {selectedIds.length} Profiles
+            </button>
+          )}
+          <Link to="/vendor/proposals/add" className="btn btn-primary" style={{ padding: '8px 16px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Proposal
+          </Link>
+        </div>
       </div>
 
       {/* Sleek Command Bar (Filters) */}
@@ -210,6 +222,19 @@ const ProposalList = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-hover)' }}>
+                <th style={{ padding: '14px 20px', width: '40px' }}>
+                  <input 
+                    type="checkbox" 
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(proposals.map(p => p.id));
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                    checked={proposals.length > 0 && selectedIds.length === proposals.length}
+                  />
+                </th>
                 <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile</th>
                 <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Name</th>
                 <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Details</th>
@@ -221,10 +246,23 @@ const ProposalList = () => {
             <tbody>
               {proposals.map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.2s', cursor: 'pointer' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'} onClick={() => { window.location.href = `/vendor/proposals/${p.id}` }}>
+                  <td style={{ padding: '12px 20px' }} onClick={(e) => e.stopPropagation()}>
+                    <input 
+                      type="checkbox"
+                      checked={selectedIds.includes(p.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(prev => [...prev, p.id]);
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => id !== p.id));
+                        }
+                      }}
+                    />
+                  </td>
                   <td style={{ padding: '12px 20px' }}>
                     <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: p.photos && p.photos.length > 0 ? '#000' : 'var(--bg-hover)', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {p.photos && p.photos.length > 0 ? (
-                           <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <img src={p.photos[0].photo_url.startsWith('http') ? p.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                            <div style={{ color: 'var(--accent-primary)', fontSize: '1.2rem', fontWeight: 800 }}>
                              {p.name.charAt(0)}

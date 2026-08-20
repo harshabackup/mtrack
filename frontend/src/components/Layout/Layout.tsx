@@ -1,4 +1,5 @@
-import React, { ReactNode, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 
 export const Layout = ({ children }: { children?: ReactNode }) => {

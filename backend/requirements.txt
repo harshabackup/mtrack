@@ -15,3 +15,7 @@ psycopg2-binary
 PyMuPDF
 supabase
 gotrue
+pgvector
+ollama
+pysweph
+pyswisseph

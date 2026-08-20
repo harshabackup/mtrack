@@ -15,6 +15,18 @@ class ProposalPhoto(Base):
     proposal = relationship("Proposal", back_populates="photos")
 
 
+class ProposalMedicalRecord(Base):
+    __tablename__ = "proposal_medical_records"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="CASCADE"), index=True)
+    record_url = Column(String, nullable=False)
+    record_name = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    proposal = relationship("Proposal", back_populates="medical_records")
+
+
 class ProposalDiscussion(Base):
     __tablename__ = "proposal_discussions"
     
@@ -110,6 +122,7 @@ class Proposal(Base):
     
     # Relationships
     photos = relationship("ProposalPhoto", back_populates="proposal", cascade="all, delete-orphan")
+    medical_records = relationship("ProposalMedicalRecord", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalMedicalRecord.created_at.desc()")
     discussions = relationship("ProposalDiscussion", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalDiscussion.created_at.desc()")
     questions = relationship("ProposalQuestion", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalQuestion.created_at.desc()")
     feedbacks = relationship("ProposalFeedback", back_populates="proposal", cascade="all, delete-orphan", order_by="ProposalFeedback.created_at.desc()")

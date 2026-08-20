@@ -193,7 +193,10 @@ const WeddingPlanner = () => {
             <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group">
                 <label style={{ fontWeight: 600 }}>Date</label>
-                <CustomDateTimePicker value={date} onChange={setDate} />
+                <CustomDateTimePicker 
+                  value={date ? date.toISOString() : ''} 
+                  onChange={(val) => setDate(val ? new Date(val) : new Date())} 
+                />
               </div>
               
               <div className="form-group">
@@ -307,7 +310,10 @@ const WeddingPlanner = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
               <div className="form-group">
                 <label style={{ fontWeight: 600 }}>Date</label>
-                <CustomDateTimePicker value={editDate} onChange={setEditDate} />
+                <CustomDateTimePicker 
+                  value={editDate ? editDate.toISOString() : ''} 
+                  onChange={(val) => setEditDate(val ? new Date(val) : new Date())} 
+                />
               </div>
               
               <div className="form-group">

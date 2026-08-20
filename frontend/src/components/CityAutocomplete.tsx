@@ -13,7 +13,7 @@ const CityAutocomplete: React.FC<CityAutocompleteProps> = ({ name, value, onChan
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync internal state with external value
   useEffect(() => {

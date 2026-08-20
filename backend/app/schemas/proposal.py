@@ -9,6 +9,19 @@ class ProposalPhotoResponse(ProposalPhotoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
 
+class ProposalMedicalRecordBase(BaseModel):
+    record_url: str
+    record_name: Optional[str] = None
+
+class ProposalMedicalRecordCreate(ProposalMedicalRecordBase):
+    pass
+
+class ProposalMedicalRecordResponse(ProposalMedicalRecordBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    proposal_id: int
+    created_at: datetime
+
 class ProposalDiscussionBase(BaseModel):
     status_stage: str
     note: str
@@ -156,6 +169,7 @@ class ProposalResponse(ProposalBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     photos: List[ProposalPhotoResponse] = []
+    medical_records: List[ProposalMedicalRecordResponse] = []
     discussions: List[ProposalDiscussionResponse] = []
     questions: List[ProposalQuestionResponse] = []
     feedbacks: List[ProposalFeedbackResponse] = []

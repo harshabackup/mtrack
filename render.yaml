@@ -10,7 +10,9 @@ services:
       - key: SECRET_KEY
         value: "super_secret_key_change_me_in_production"
       - key: CORS_ORIGINS
-        value: "http://localhost:5173,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in"
+        value: "http://localhost:5173,http://localhost:3000,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in"
+      - key: JWT_EXPIRE_MINUTES
+        value: "5256000"
       - key: SUPABASE_URL
         value: "https://fxptinoldvmuofabxguw.supabase.co"
       - key: SUPABASE_SERVICE_KEY

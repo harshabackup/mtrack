@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15-alpine
+    image: ankane/pgvector:latest
     container_name: mapp-postgres
     restart: always
     environment:
@@ -23,7 +23,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres.fxptinoldvmuofabxguw:Slr%400137495@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
       - SECRET_KEY=supersecretkeythatyoushouldchangeinprod
-      - JWT_EXPIRE_MINUTES=1440
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in
+      - JWT_EXPIRE_MINUTES=5256000
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - ENVIRONMENT=development
       - SUPABASE_URL=https://fxptinoldvmuofabxguw.supabase.co
       - SUPABASE_SERVICE_KEY=your_supabase_service_role_key_here

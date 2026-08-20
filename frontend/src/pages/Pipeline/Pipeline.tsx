@@ -224,7 +224,7 @@ const Pipeline = () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '1rem'
                       }}>
                         {p.photos && p.photos.length > 0 ? (
-                           <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <img src={p.photos[0].photo_url.startsWith('http') ? p.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                            p.name.charAt(0)
                         )}

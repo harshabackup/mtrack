@@ -1,7 +1,6 @@
-import React from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { ProtectedRoute, VendorRoute, AdminRoute } from './routes/ProtectedRoute';
+import { VendorRoute, AdminRoute } from './routes/ProtectedRoute';
 import { Layout } from './components/Layout/Layout';
 
 // Auth Pages
@@ -15,6 +14,7 @@ import ProposalList from './pages/Proposals/ProposalList';
 import AddProposal from './pages/AddProposal/AddProposal';
 import ProposalDetails from './pages/Proposals/ProposalDetails';
 import EditProposal from './pages/Proposals/EditProposal';
+import ProposalCompare from './pages/Proposals/ProposalCompare';
 import CompareProposals from './pages/Compare/CompareProposals';
 import Pipeline from './pages/Pipeline/Pipeline';
 import Settings from './pages/Settings/Settings';
@@ -58,6 +58,7 @@ const router = createBrowserRouter([
           { path: "proposals", element: <ProposalList /> },
           { path: "pipeline", element: <Pipeline /> },
           { path: "proposals/add", element: <AddProposal /> },
+          { path: "proposals/compare", element: <ProposalCompare /> },
           { path: "proposals/:id", element: <ProposalDetails /> },
           { path: "proposals/:id/edit", element: <EditProposal /> },
           { path: "proposals/:id/planner", element: <WeddingPlanner /> },

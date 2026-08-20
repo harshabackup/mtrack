@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .core.database import engine, Base
-from .models import user, proposal, match, role, vendor, otp, audit_log
+from .models import user, proposal, match, role, vendor, otp, audit_log, ai
 
-from .api import auth, proposals, matching
+from .api import auth, proposals, matching, ai, astrology
 
 # Ensure storage directory exists
 os.makedirs("storage", exist_ok=True)
@@ -36,6 +36,8 @@ app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 app.include_router(auth.router)
 app.include_router(proposals.router)
 app.include_router(matching.router)
+app.include_router(ai.router)
+app.include_router(astrology.router)
 
 @app.get("/")
 def read_root():

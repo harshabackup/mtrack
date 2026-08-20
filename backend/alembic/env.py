@@ -31,6 +31,7 @@ from app.models.role import Role
 from app.models.vendor import Vendor
 from app.models.otp import OTPVerification
 from app.models.audit_log import AuditLog
+from app.models.ai import ProposalField, FamilyPreference, SemanticEmbedding
 
 target_metadata = Base.metadata
 

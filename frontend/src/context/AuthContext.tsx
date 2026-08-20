@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 
+
 interface User {
   id: number;
   email: string;
@@ -25,11 +26,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
-    const user_id = localStorage.getItem('user_id');
-    const vendor_id = localStorage.getItem('vendor_id');
+    const userId = localStorage.getItem('user_id');
+    const vendorId = localStorage.getItem('vendor_id');
 
-    if (token && role) {
-      // In a robust app, we'd fetch the exact user profile via /api/v1/auth/me here
+    if (token && role && userId) {
+      // Set user immediately so they don't get logged out on refresh or network error
+      setUser({
+        id: parseInt(userId),
+        email: '',
+        full_name: '',
+        role: role,
+        vendor_id: vendorId ? parseInt(vendorId) : undefined
+      });
+
       api.get('/api/v1/auth/me')
         .then(response => {
           setUser({
@@ -42,9 +51,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
         .catch((error) => {
           // Only log out if it's explicitly an auth error (401/403). 
-          // Don't log out if the server is just sleeping (502/504) or on network timeout.
           if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('vendor_id');
+            setUser(null);
           }
         })
         .finally(() => {
