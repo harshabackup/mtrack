@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from ..core.database import get_db
 from ..core.permissions import require_vendor
 from ..models.user import User
@@ -114,24 +115,9 @@ async def analyze_proposal(
         return record.analysis_data
         
     except Exception as e:
-        if "unavailable" in str(e).lower() or "timeout" in str(e).lower():
-            mock_data = {
-                "bio_data_summary": f"{proposal.name} has a robust profile with a strong foundation in {proposal.education}. Currently working at {proposal.company} with a competitive package, their background suggests a stable, career-oriented individual who balances modern professional ambitions with traditional family values.",
-                "astrology_summary": f"The alignment of {proposal.rasi} Rasi and {proposal.nakshatra} Nakshatra indicates a highly compatible and spiritually grounded personality. No major planetary afflictions (Dosham) are prominent, suggesting a harmonious transition into married life.",
-                "information_quality_score": 92,
-                "missing_information": ["Official Proof of Income (Tax Returns)", "Dietary and lifestyle preferences"],
-                "potential_conflicts": ["The mentioned current city differs slightly from the father's permanent residence."],
-                "discussion_topics": ["How do they envision balancing their career at {proposal.company} post-marriage?", "What are their long-term relocation plans?"]
-            }
-            record = db.query(ProposalAnalysisRecord).filter(ProposalAnalysisRecord.proposal_id == proposal_id).first()
-            if not record:
-                record = ProposalAnalysisRecord(proposal_id=proposal_id, analysis_data=mock_data)
-                db.add(record)
-            else:
-                record.analysis_data = mock_data
-            db.commit()
-            return mock_data
-        raise e
+        import logging
+        logging.error(f"AI generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"AI provider failed to generate analysis: {e}")
 
 @router.get("/proposals/compare-ai")
 async def ai_compare_proposals(
@@ -167,10 +153,7 @@ async def ai_compare_proposals(
     try:
         explanation = await provider.generate(prompt)
     except Exception as e:
-        if "unavailable" in str(e).lower() or "timeout" in str(e).lower():
-            explanation = "Mock AI Explanation: Based on the compatibility matrix, these profiles share a strong educational background but have some minor location differences. Overall, it's a solid 75% match!"
-        else:
-            raise e
+        raise HTTPException(status_code=500, detail=f"AI provider failed to explain comparison: {e}")
     
     return {
         "ai_explanation": explanation
@@ -218,7 +201,7 @@ async def chat_with_proposal_ai(
         response_text = await provider.generate(prompt, system_prompt=system_prompt)
         return {"response": response_text.strip()}
     except Exception as e:
-        return {"response": f"I'm currently unable to connect to the AI brain. Please try again later. (Error: {str(e)})"}
+        raise HTTPException(status_code=500, detail=f"AI provider failed to respond: {e}")
 
 
 
@@ -269,7 +252,7 @@ async def proposal_personality(
     except Exception as e:
         import logging
         logging.error(f"AI generation failed: {e}")
-        return {"proposal_id": proposal_id, "personality": _mock_personality(proposal, chart), "chart": chart}
+        raise HTTPException(status_code=500, detail=f"AI provider failed to generate personality report: {e}")
 
 
 @router.post("/proposals/{proposal_id}/dosha-report")
@@ -299,7 +282,7 @@ async def proposal_dosha_report(
     except Exception as e:
         import logging
         logging.error(f"AI generation failed: {e}")
-        return {"proposal_id": proposal_id, "dosha_report": _mock_dosha_report(manglik), "manglik": manglik, "chart": chart}
+        raise HTTPException(status_code=500, detail=f"AI provider failed to generate dosha report: {e}")
 
 
 @router.post("/proposals/compare-astrology")
@@ -346,65 +329,204 @@ async def compare_astrology(
     except Exception as e:
         import logging
         logging.error(f"AI generation failed: {e}")
-        return {
-            "proposal_1": {"id": ordered[0].id, "name": ordered[0].name},
-            "proposal_2": {"id": ordered[1].id, "name": ordered[1].name},
-            "ashtakoota": ashtakoota,
-            "compatibility": _mock_compatibility(ashtakoota),
+        raise HTTPException(status_code=500, detail=f"AI provider failed to generate compatibility report: {e}")
+
+
+# ──────────────────────────────────────────────────────────────
+# GLOBAL CHAT  — sessions + messages (persisted to DB)
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/proposals-list")
+def proposals_list_for_chat(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    """Lightweight list of proposals (id + name) for the chat proposal selector."""
+    proposals = db.query(Proposal.id, Proposal.name).filter(
+        Proposal.vendor_id == current_user.vendor_id
+    ).order_by(Proposal.name).all()
+    return [{"id": p.id, "name": p.name} for p in proposals]
+
+
+@router.get("/chat/sessions")
+def list_chat_sessions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    from ..models.ai import ChatSession
+    sessions = (
+        db.query(ChatSession)
+        .filter(ChatSession.vendor_id == current_user.vendor_id)
+        .order_by(ChatSession.started_at.desc())
+        .limit(50)
+        .all()
+    )
+    return [
+        {
+            "id": s.id,
+            "proposal_id": s.proposal_id,
+            "proposal_name": s.proposal.name if s.proposal else None,
+            "is_active": s.is_active,
+            "started_at": s.started_at.isoformat() if s.started_at else None,
+            "ended_at": s.ended_at.isoformat() if s.ended_at else None,
+            "message_count": len(s.messages),
         }
+        for s in sessions
+    ]
 
 
-def _mock_personality(proposal, chart):
+@router.post("/chat/sessions")
+def create_chat_session(
+    body: dict = {},
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    from ..models.ai import ChatSession
+    # End any currently active sessions
+    db.query(ChatSession).filter(
+        ChatSession.vendor_id == current_user.vendor_id,
+        ChatSession.is_active == 1,
+    ).update({"is_active": 0, "ended_at": func.now()})
+
+    session = ChatSession(
+        vendor_id=current_user.vendor_id,
+        proposal_id=body.get("proposal_id"),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
     return {
-        "personality_summary": (
-            f"{proposal.name} presents a {chart.get('lagna_sign')} Ascendant personality with a "
-            f"{chart.get('moon_sign')} Moon sign (mind). This combination indicates a person who "
-            f"balances external confidence with a sensitive inner world, guided by the instincts of "
-            f"the {chart.get('moon_nakshatra')} nakshatra."
-        ),
-        "strengths": ["Adaptable and thoughtful", "Family-oriented", "Determined in career goals"],
-        "weaknesses": ["May overthink decisions", "Needs reassurance in relationships"],
-        "career_outlook": "Favourable for structured professions, engineering, finance, and technology roles.",
-        "relationship_style": "Committed, seeks stability and emotional connection in marriage.",
-        "health_notes": "Generally good; watch stress and digestion during high-pressure periods.",
-        "lucky_factors": {"color": "Green", "number": "5", "day": "Friday", "gemstone": "Emerald"},
+        "id": session.id,
+        "proposal_id": session.proposal_id,
+        "proposal_name": session.proposal.name if session.proposal else None,
+        "is_active": session.is_active,
+        "started_at": session.started_at.isoformat() if session.started_at else None,
     }
 
 
-def _mock_dosha_report(manglik):
+@router.get("/chat/sessions/{session_id}")
+def get_chat_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    from ..models.ai import ChatSession
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.vendor_id == current_user.vendor_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {
-        "manglik_status": "Present" if manglik.get("present") else "Not Present",
-        "manglik_severity": manglik.get("severity", "none"),
-        "manglik_house_from_ascendant": manglik.get("mars_house_asc"),
-        "manglik_house_from_moon": manglik.get("mars_house_moon"),
-        "nadi_dosha": False,
-        "bhakoot_dosha": False,
-        "cancellations": manglik.get("cancellations", []),
-        "remedies": [
-            "Consult a trusted family astrologer for a personalized assessment.",
-            "Traditional remedies like Kumbh Vivah or Mars-related puja are considered by some families.",
+        "id": session.id,
+        "proposal_id": session.proposal_id,
+        "proposal_name": session.proposal.name if session.proposal else None,
+        "is_active": session.is_active,
+        "started_at": session.started_at.isoformat() if session.started_at else None,
+        "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+        "messages": [
+            {"id": m.id, "role": m.role, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else None}
+            for m in session.messages
         ],
-        "overall_verdict": (
-            "The Manglik analysis is mild and manageable. Many families proceed after consulting "
-            "an astrologer and considering cancellation rules."
-        ),
     }
 
 
-def _mock_compatibility(ashtakoota):
-    total = ashtakoota.get("total", 0)
+@router.post("/chat/sessions/{session_id}/end")
+def end_chat_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    from ..models.ai import ChatSession
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.vendor_id == current_user.vendor_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session.is_active = 0
+    session.ended_at = func.now()
+    db.commit()
+    return {"message": "Session ended"}
+
+
+@router.post("/chat/sessions/{session_id}/messages")
+async def send_chat_message(
+    session_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor),
+):
+    from ..models.ai import ChatSession, ChatMessage
+
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.vendor_id == current_user.vendor_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    user_message = body.get("message", "").strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    # Save user message
+    user_msg = ChatMessage(session_id=session.id, role="user", content=user_message)
+    db.add(user_msg)
+    db.commit()
+
+    # Build context from proposal (if any)
+    context = ""
+    if session.proposal_id:
+        proposal = db.query(Proposal).filter(Proposal.id == session.proposal_id).first()
+        if proposal:
+            context = (
+                f"Proposal Profile Data:\n"
+                f"Name: {proposal.name}, Age: {proposal.age}, "
+                f"City: {proposal.current_city}, Education: {proposal.education}, "
+                f"Company: {proposal.company}, Salary: {proposal.salary_ctc}. "
+                f"Rasi: {proposal.rasi}, Nakshatra: {proposal.nakshatra}, Dosham: {proposal.dosham}. "
+                f"Father: {proposal.father_name}, Siblings: {proposal.siblings_details}.\n\n"
+            )
+
+    # Load recent history from DB
+    recent_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(12)
+        .all()
+    )
+    recent_messages.reverse()
+
+    history_str = ""
+    for msg in recent_messages[:-1]:  # exclude the message we just inserted
+        prefix = "User: " if msg.role == "user" else "Assistant: "
+        history_str += f"{prefix}{msg.content}\n"
+
+    system_prompt = (
+        "You are a helpful matchmaking assistant. "
+        "Answer the user's questions about the proposal profile provided in the context. "
+        "If no proposal is selected, answer general matchmaking questions. "
+        "Keep your answers concise, supportive, and helpful."
+    )
+
+    prompt = f"{context}Conversation History:\n{history_str}\nUser: {user_message}\nAssistant:"
+
+    provider = _get_provider()
+    try:
+        response_text = await provider.generate(prompt, system_prompt=system_prompt)
+        ai_content = response_text.strip()
+    except Exception as e:
+        ai_content = f"I'm sorry, I encountered an error: {str(e)}"
+
+    # Save AI response
+    ai_msg = ChatMessage(session_id=session.id, role="ai", content=ai_content)
+    db.add(ai_msg)
+    db.commit()
+    db.refresh(ai_msg)
+
     return {
-        "guna_scores": ashtakoota.get("scores", {}),
-        "total_score": total,
-        "max_score": 36,
-        "verdict": ashtakoota.get("verdict", "Average"),
-        "critical_doshas": [
-            name.replace("_", " ").title() for name, present in ashtakoota.get("doshas", {}).items() if present
-        ],
-        "strengths": ["Good temperament alignment", "Supportive planetary friendship"],
-        "concerns": ["Nadi or Bhakoot dosha may require review" if ashtakoota.get("doshas", {}).get("nadi_dosha") or ashtakoota.get("doshas", {}).get("bhakoot_dosha") else "No major concerns"],
-        "ai_recommendation": (
-            f"The Ashtakoota score is {total}/36 ({ashtakoota.get('verdict')}). "
-            "This should be considered alongside family discussion and personal compatibility."
-        ),
+        "user_message": {"id": user_msg.id, "role": "user", "content": user_message, "created_at": user_msg.created_at.isoformat() if user_msg.created_at else None},
+        "ai_message": {"id": ai_msg.id, "role": "ai", "content": ai_content, "created_at": ai_msg.created_at.isoformat() if ai_msg.created_at else None},
     }

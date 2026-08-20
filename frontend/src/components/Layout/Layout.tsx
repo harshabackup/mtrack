@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import GlobalChatWidget from '../GlobalChat/GlobalChatWidget';
 
 export const Layout = ({ children }: { children?: ReactNode }) => {
   const location = useLocation();
@@ -97,6 +98,7 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
           {children || <Outlet />}
         </div>
       </main>
+      <GlobalChatWidget />
     </div>
   );
 };

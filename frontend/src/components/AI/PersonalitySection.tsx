@@ -26,7 +26,7 @@ const PersonalitySection: React.FC<PersonalitySectionProps> = ({ proposalId, pre
     }
   }, [preloadedData]);
 
-  if (isAnalyzing) {
+  if (isAnalyzing && !data) {
     return (
       <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Generating personality analysis...</p>
