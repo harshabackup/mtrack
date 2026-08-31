@@ -138,6 +138,8 @@ class Proposal(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    is_my_profile = Column(Boolean, default=False)
 
 class ProposalExpense(Base):
     __tablename__ = "proposal_expenses"

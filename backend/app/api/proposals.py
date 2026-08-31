@@ -37,7 +37,10 @@ def get_proposals(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_vendor)
 ):
-    query = db.query(Proposal).filter(Proposal.vendor_id == current_user.vendor_id)
+    query = db.query(Proposal).filter(
+        Proposal.vendor_id == current_user.vendor_id,
+        Proposal.is_my_profile == False
+    )
     if name:
         query = query.filter(Proposal.name.ilike(f"%{name}%"))
     if city:
@@ -91,6 +94,28 @@ def compare_proposals(
         "proposals": serialized_proposals,
         "compatibility": compatibility_matrix
     }
+
+@router.get("/me", response_model=ProposalResponse)
+def get_my_profile(db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
+    proposal = db.query(Proposal).filter(
+        Proposal.created_by == current_user.id,
+        Proposal.is_my_profile == True,
+        Proposal.vendor_id == current_user.vendor_id
+    ).first()
+    
+    if not proposal:
+        proposal = Proposal(
+            name=current_user.full_name,
+            created_by=current_user.id,
+            vendor_id=current_user.vendor_id,
+            is_my_profile=True,
+            status="IN_PROGRESS"
+        )
+        db.add(proposal)
+        db.commit()
+        db.refresh(proposal)
+        
+    return proposal
 
 @router.post("/", response_model=ProposalResponse, status_code=status.HTTP_201_CREATED)
 def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):

@@ -6,8 +6,9 @@ import CityAutocomplete from '../../components/CityAutocomplete';
 const raasiOptions = ["Mesha (Aries)", "Vrishabha (Taurus)", "Mithuna (Gemini)", "Karka (Cancer)", "Simha (Leo)", "Kanya (Virgo)", "Tula (Libra)", "Vrischika (Scorpio)", "Dhanu (Sagittarius)", "Makara (Capricorn)", "Kumbha (Aquarius)", "Meena (Pisces)"];
 const nakshatraOptions = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashirsha", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"];
 
-const EditProposal = () => {
-  const { id } = useParams<{ id: string }>();
+const EditProposal = ({ proposalId, isProfileMode }: { proposalId?: string, isProfileMode?: boolean }) => {
+  const params = useParams<{ id: string }>();
+  const id = proposalId || params.id;
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -167,8 +168,10 @@ const EditProposal = () => {
 
       await api.put(`/api/v1/proposals/${id}`, payload);
 
-      showNotification("Proposal saved successfully!", "success");
-      setTimeout(() => navigate(`/vendor/proposals/${id}`), 1000);
+      showNotification("Profile saved successfully!", "success");
+      if (!isProfileMode) {
+        setTimeout(() => navigate(`/vendor/proposals/${id}`), 1000);
+      }
     } catch (error) {
       console.error("Error updating proposal", error);
       setIsSubmitting(false);
@@ -182,13 +185,17 @@ const EditProposal = () => {
     <div className="animate-in" onPaste={handlePaste}>
       <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 className="page-title">Edit Proposal</h2>
-          <p style={{ marginTop: '8px', marginBottom: 0 }}>Update details for {formData.name}</p>
+          <h2 className="page-title">{isProfileMode ? "My Profile" : "Edit Proposal"}</h2>
+          <p style={{ marginTop: '8px', marginBottom: 0 }}>
+            {isProfileMode ? "Update your personal details and bio data" : `Update details for ${formData.name}`}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate(-1)} disabled={isSubmitting}>
-            Cancel
-          </button>
+          {!isProfileMode && (
+            <button type="button" className="btn btn-outline" onClick={() => navigate(-1)} disabled={isSubmitting}>
+              Cancel
+            </button>
+          )}
           <button type="submit" form="edit-proposal-form" className="btn btn-primary" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
