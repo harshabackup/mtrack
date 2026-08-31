@@ -21,7 +21,7 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/auth/users');
+      const response = await api.get('/api/v1/auth/users');
       setUsers(response.data);
     } catch (error) {
       console.error('Failed to fetch users', error);
@@ -42,7 +42,7 @@ const Users = () => {
     setMessage('');
     
     try {
-      await api.post('/auth/invite', { email: inviteEmail });
+      await api.post('/api/v1/auth/invite', { email: inviteEmail });
       setMessage('Invitation sent successfully!');
       setInviteEmail('');
       fetchUsers();
