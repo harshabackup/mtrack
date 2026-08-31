@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Private Marriage Proposal Management Web App API")
 
-cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in")
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in,https://proposal.harsharoyal.in,http://proposal.harsharoyal.in")
 cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
 
 # Setup CORS
