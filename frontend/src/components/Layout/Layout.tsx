@@ -30,11 +30,9 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
     { path: '/admin/users', label: 'Users', icon: <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" /> }
   ];
 
-  const visibleMenuItems = user?.role === 'INVITED_USER' 
-    ? [] // Hide all for invited users, they only see their add page
-    : (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') 
-      ? [...adminItems, ...menuItems]
-      : menuItems;
+  const visibleMenuItems = user?.role === 'ADMIN'
+    ? [...adminItems, ...menuItems]
+    : menuItems;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

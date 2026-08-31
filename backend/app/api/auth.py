@@ -214,22 +214,22 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/invite")
 async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     role = db.query(Role).filter(Role.id == current_user.role_id).first()
-    if role.name not in ["ADMIN", "SUPER_ADMIN"]:
+    if not role or role.name != "ADMIN":
         raise HTTPException(status_code=403, detail="Not authorized to invite users")
         
     existing = db.query(User).filter(User.email == req.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    invited_role = db.query(Role).filter(Role.name == "INVITED_USER").first()
-    if not invited_role:
-        raise HTTPException(status_code=500, detail="INVITED_USER role not found")
+    user_role = db.query(Role).filter(Role.name == "USER").first()
+    if not user_role:
+        raise HTTPException(status_code=500, detail="USER role not found in database")
 
     token = str(uuid.uuid4())
     new_user = User(
         email=req.email,
         full_name="Invited User",
-        role_id=invited_role.id,
+        role_id=user_role.id,
         email_verified=False,
         invitation_token=token,
         profile_completed=False
@@ -237,13 +237,17 @@ async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current
     db.add(new_user)
     db.commit()
 
-    # Create dummy vendor for this user just so they have an isolated space
-    vendor = Vendor(vendor_name=f"Vendor for {req.email}", email=req.email, owner_user_id=new_user.id)
-    db.add(vendor)
-    db.commit()
-    db.refresh(vendor)
-    
-    new_user.vendor_id = vendor.id
+    # Associate with admin's vendor so invited user can submit proposals to same pool
+    admin_vendor_id = current_user.vendor_id
+    if admin_vendor_id:
+        new_user.vendor_id = admin_vendor_id
+    else:
+        # Fallback: create a vendor space for this user
+        vendor = Vendor(vendor_name=f"Space for {req.email}", email=req.email, owner_user_id=new_user.id)
+        db.add(vendor)
+        db.commit()
+        db.refresh(vendor)
+        new_user.vendor_id = vendor.id
     db.commit()
 
     # Use the new proposal domain for invitations
@@ -363,7 +367,7 @@ def read_users_me(current_user: User = Depends(get_current_user), db: Session = 
         "full_name": current_user.full_name,
         "vendor_id": current_user.vendor_id,
         "role_id": current_user.role_id,
-        "role": role.name if role else "VENDOR",
+        "role": role.name if role else "USER",
         "is_active": current_user.is_active,
         "phone": current_user.phone
     }
