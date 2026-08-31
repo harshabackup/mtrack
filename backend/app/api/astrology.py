@@ -116,25 +116,12 @@ def compatibility(payload: CompatibilityPayload, db: Session = Depends(get_db), 
 @router.get("/navamsa/{proposal_id}")
 async def get_navamsa(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
     proposal = get_proposal_or_404(proposal_id, current_user.vendor_id, db)
-    if not proposal.dob:
-        raise HTTPException(status_code=400, detail="Date of birth is required")
     
-    parsed = astrology_engine.parse_dob_tob(proposal.dob, proposal.tob)
-    if not parsed:
-        raise HTTPException(status_code=400, detail="Invalid date or time of birth")
-        
-    lat, lon, _tz = None, None, None
-    coords = get_lat_lon(proposal.pob)
-    if coords:
-        lat, lon, _tz = coords
-    elif proposal.pob:
-        lat, lon = 17.3850, 78.4867
-        
-    if lat is None or lon is None:
-        raise HTTPException(status_code=400, detail="Birth place is required")
-        
-    year, month, day, hour, minute, second = parsed
-    result = await astrology_engine.astro_api.get_navamsa_chart(year, month, day, hour, minute, lat, lon)
+    # Get the D1 chart (calculated locally or from cache)
+    chart = compute_chart_for_proposal(proposal)
+    
+    # Calculate D9 mathematically from D1
+    result = astrology_engine.calculate_d9_chart(chart)
     return {"proposal_id": proposal_id, "navamsa": result}
 
 @router.get("/dasha/{proposal_id}")
@@ -142,21 +129,17 @@ async def get_dasha(proposal_id: int, db: Session = Depends(get_db), current_use
     proposal = get_proposal_or_404(proposal_id, current_user.vendor_id, db)
     if not proposal.dob:
         raise HTTPException(status_code=400, detail="Date of birth is required")
-    
+        
     parsed = astrology_engine.parse_dob_tob(proposal.dob, proposal.tob)
     if not parsed:
         raise HTTPException(status_code=400, detail="Invalid date or time of birth")
         
-    lat, lon, _tz = None, None, None
-    coords = get_lat_lon(proposal.pob)
-    if coords:
-        lat, lon, _tz = coords
-    elif proposal.pob:
-        lat, lon = 17.3850, 78.4867
-        
-    if lat is None or lon is None:
-        raise HTTPException(status_code=400, detail="Birth place is required")
-        
-    year, month, day, hour, minute, second = parsed
-    result = await astrology_engine.astro_api.get_vimshottari_dasha(year, month, day, hour, minute, lat, lon)
+    year, month, day, _h, _m, _s = parsed
+    
+    # Get D1 chart to find exact moon longitude
+    chart = compute_chart_for_proposal(proposal)
+    moon_lon = chart.get("planets", {}).get("Moon", {}).get("longitude", 0)
+    
+    # Calculate Vimshottari mathematically based on Moon
+    result = astrology_engine.calculate_vimshottari_dasha(moon_lon, year, month, day)
     return {"proposal_id": proposal_id, "dasha": result}

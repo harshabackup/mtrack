@@ -559,68 +559,105 @@ def parse_dob_tob(dob: str, tob: str) -> Optional[Tuple[int, int, int, int, int,
 
     return dt.year, dt.month, dt.day, hour, minute, second
 
-class ExternalAstrologyAPI:
-    def __init__(self):
-        self.api_provider = os.getenv("ASTROLOGY_API_PROVIDER", "astro_engine").lower()
-        self.api_key = os.getenv("ASTROLOGY_API_KEY", "")
-
-    async def get_navamsa_chart(self, year: int, month: int, day: int, hour: int, minute: int, lat: float, lon: float):
-        if not self.api_key:
-            # Fallback/Mock for local testing
-            return {"source": "mock", "chart_type": "D9", "planets": {
-                "Sun": {"sign": "Aries", "house": 1},
-                "Moon": {"sign": "Taurus", "house": 2}
-            }}
+def calculate_d9_chart(chart_d1: Dict[str, Any]) -> Dict[str, Any]:
+    # Calculate D9 ascendant
+    asc_lon = chart_d1.get("ascendant", {}).get("longitude", 0)
+    asc_sign_idx = int(asc_lon / 30) % 12
+    asc_deg = asc_lon % 30
+    asc_nav_idx = int(asc_deg / (30 / 9))
+    
+    starts = {0: 0, 1: 9, 2: 6, 3: 3}
+    asc_d9_sign_idx = (starts[asc_sign_idx % 4] + asc_nav_idx) % 12
+    asc_d9_sign = SIGNS[asc_d9_sign_idx]
+    
+    d9_chart = {
+        "source": "local_math",
+        "chart_type": "D9",
+        "ascendant": {"sign": asc_d9_sign, "longitude": asc_lon},
+        "planets": {}
+    }
+    
+    for planet, data in chart_d1.get("planets", {}).items():
+        lon = data.get("longitude", 0)
+        sign_idx = int(lon / 30) % 12
+        deg = lon % 30
+        nav_idx = int(deg / (30 / 9))
         
-        # Dispatch based on provider
-        if self.api_provider == "freeastroapi":
-            return await self._call_freeastroapi("navamsa", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "divineapi":
-            return await self._call_divineapi("navamsa", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "navamsha_api":
-            return await self._call_navamsha_api("navamsa", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "roxyapi":
-            return await self._call_roxyapi("navamsa", year, month, day, hour, minute, lat, lon)
-        else: # astro_engine (Daanyam)
-            return await self._call_astro_engine("navamsa", year, month, day, hour, minute, lat, lon)
+        d9_sign_idx = (starts[sign_idx % 4] + nav_idx) % 12
+        d9_sign = SIGNS[d9_sign_idx]
+        
+        # House is calculated relative to D9 Ascendant
+        d9_house = (d9_sign_idx - asc_d9_sign_idx) % 12 + 1
+        
+        d9_chart["planets"][planet] = {
+            "sign": d9_sign,
+            "house": d9_house,
+            "d1_longitude": lon
+        }
+        
+    return d9_chart
 
-    async def get_vimshottari_dasha(self, year: int, month: int, day: int, hour: int, minute: int, lat: float, lon: float):
-        if not self.api_key:
-            # Fallback/Mock for local testing
-            return {"source": "mock", "dasha_type": "Vimshottari", "dashas": [
-                {"planet": "Jupiter", "start": "2020-01-01", "end": "2036-01-01"}
-            ]}
 
-        if self.api_provider == "freeastroapi":
-            return await self._call_freeastroapi("dasha", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "divineapi":
-            return await self._call_divineapi("dasha", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "navamsha_api":
-            return await self._call_navamsha_api("dasha", year, month, day, hour, minute, lat, lon)
-        elif self.api_provider == "roxyapi":
-            return await self._call_roxyapi("dasha", year, month, day, hour, minute, lat, lon)
+def calculate_vimshottari_dasha(moon_longitude: float, dob_year: int, dob_month: int, dob_day: int) -> Dict[str, Any]:
+    from datetime import datetime, timedelta
+    
+    DASHA_PERIODS = {
+        "Ketu": 7, "Venus": 20, "Sun": 6, "Moon": 10, "Mars": 7, 
+        "Rahu": 18, "Jupiter": 16, "Saturn": 19, "Mercury": 17
+    }
+    DASHA_ORDER = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"]
+    
+    nak_len = 360 / 27
+    nak_idx = int(moon_longitude / nak_len) % 27
+    
+    # Map nakshatra index to lord
+    # Nakshatras 0, 9, 18 are Ketu. 1, 10, 19 are Venus, etc.
+    lord_idx = nak_idx % 9
+    starting_lord = DASHA_ORDER[lord_idx]
+    
+    # Balance of dasha
+    deg_in_nak = moon_longitude % nak_len
+    fraction_remaining = 1.0 - (deg_in_nak / nak_len)
+    
+    total_years = DASHA_PERIODS[starting_lord]
+    balance_years = total_years * fraction_remaining
+    
+    balance_days = int(balance_years * 365.25)
+    
+    try:
+        current_date = datetime(dob_year, dob_month, dob_day)
+    except ValueError:
+        current_date = datetime.now() # Fallback if invalid date
+        
+    start_idx = DASHA_ORDER.index(starting_lord)
+    
+    dashas = []
+    
+    for i in range(9):
+        current_lord_idx = (start_idx + i) % 9
+        lord = DASHA_ORDER[current_lord_idx]
+        
+        start_str = current_date.strftime("%Y-%m-%d")
+        
+        if i == 0:
+            duration_days = balance_days
         else:
-            return await self._call_astro_engine("dasha", year, month, day, hour, minute, lat, lon)
-
-    # API specific implementations (Stubs to be filled with actual endpoints)
-    async def _call_freeastroapi(self, endpoint: str, *args):
-        # Implementation for FreeAstroAPI
-        return {"source": "FreeAstroAPI", "endpoint": endpoint, "status": "implemented"}
-
-    async def _call_divineapi(self, endpoint: str, *args):
-        # Implementation for DivineAPI
-        return {"source": "DivineAPI", "endpoint": endpoint, "status": "implemented"}
-
-    async def _call_navamsha_api(self, endpoint: str, *args):
-        # Implementation for Navamsha API
-        return {"source": "Navamsha API", "endpoint": endpoint, "status": "implemented"}
-
-    async def _call_roxyapi(self, endpoint: str, *args):
-        # Implementation for RoxyAPI
-        return {"source": "RoxyAPI", "endpoint": endpoint, "status": "implemented"}
-
-    async def _call_astro_engine(self, endpoint: str, *args):
-        # Implementation for Astro Engine API by Daanyam
-        return {"source": "Astro Engine API", "endpoint": endpoint, "status": "implemented"}
-
-astro_api = ExternalAstrologyAPI()
+            duration_days = int(DASHA_PERIODS[lord] * 365.25)
+            
+        end_date = current_date + timedelta(days=duration_days)
+        end_str = end_date.strftime("%Y-%m-%d")
+        
+        dashas.append({
+            "planet": lord,
+            "start": start_str,
+            "end": end_str,
+            "total_years": DASHA_PERIODS[lord] if i > 0 else round(balance_years, 2)
+        })
+        
+        current_date = end_date
+        
+    return {
+        "source": "local_math",
+        "dasha_type": "Vimshottari",
+        "dashas": dashas
+    }
