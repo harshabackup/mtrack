@@ -43,7 +43,7 @@ const VerifyOTP = () => {
         if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
           navigate('/admin/dashboard');
         } else {
-          navigate('/vendor/dashboard');
+          navigate('/invited');
         }
       }, 1000);
     } catch (err: any) {
