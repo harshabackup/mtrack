@@ -250,6 +250,43 @@ async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current
     invite_link = f"https://proposal.harsharoyal.in/accept-invite?token={token}"
     print(f"--- INVITATION LINK FOR {req.email}: {invite_link} ---")
     
+    # Send actual email via EmailJS
+    try:
+        # Since we don't have a specific template for invites, we can reuse the OTP function or write a small custom one
+        # To avoid duplicating code, we will make a quick EmailJS call here directly
+        service_id = os.getenv("EMAILJS_SERVICE_ID")
+        template_id = os.getenv("EMAILJS_TEMPLATE_ID")
+        user_id = os.getenv("EMAILJS_USER_ID")
+        private_key = os.getenv("EMAILJS_PRIVATE_KEY")
+        
+        if service_id and template_id and user_id and private_key:
+            html_content = f"""
+            <div style="font-family: sans-serif; padding: 20px;">
+              <h2>You've been invited to MAPP!</h2>
+              <p>Please click the link below to accept your invitation and complete your profile:</p>
+              <a href="{invite_link}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
+            </div>
+            """
+            
+            url = "https://api.emailjs.com/api/v1.0/email/send"
+            payload = {
+                "service_id": service_id,
+                "template_id": template_id,
+                "user_id": user_id,
+                "accessToken": private_key,
+                "template_params": {
+                    "email": req.email,
+                    "html_content": html_content
+                }
+            }
+            
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
+                print(f"--- Invite EmailJS response: {response.status_code} ---")
+    except Exception as e:
+        print(f"--- Failed to send invite email: {e} ---")
+    
     return {"message": "Invitation sent successfully"}
 
 @router.post("/accept-invite")
