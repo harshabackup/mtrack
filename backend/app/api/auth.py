@@ -260,7 +260,7 @@ async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current
         # To avoid duplicating code, we will make a quick EmailJS call here directly
         service_id = os.getenv("EMAILJS_SERVICE_ID")
         template_id = os.getenv("EMAILJS_TEMPLATE_ID")
-        user_id = os.getenv("EMAILJS_USER_ID")
+        user_id = os.getenv("EMAILJS_PUBLIC_KEY")
         private_key = os.getenv("EMAILJS_PRIVATE_KEY")
         
         if service_id and template_id and user_id and private_key:
