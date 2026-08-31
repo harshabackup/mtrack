@@ -52,6 +52,8 @@ const AcceptInvite: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [photosToUpload, setPhotosToUpload] = useState<File[]>([]);
+  const [pdfToUpload, setPdfToUpload] = useState<File | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -77,7 +79,28 @@ const AcceptInvite: React.FC = () => {
         height: formData.height || undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
       };
-      await api.post('/api/v1/auth/accept-invite', payload);
+      const response = await api.post('/api/v1/auth/accept-invite', payload);
+      const newProposalId = response.data.proposal_id;
+
+      if (newProposalId) {
+        if (photosToUpload.length > 0) {
+          for (const file of photosToUpload) {
+            const fileData = new FormData();
+            fileData.append('file', file);
+            await api.post(`/api/v1/proposals/${newProposalId}/upload?file_type=photo`, fileData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
+        }
+        if (pdfToUpload) {
+          const pdfData = new FormData();
+          pdfData.append('file', pdfToUpload);
+          await api.post(`/api/v1/proposals/${newProposalId}/upload?file_type=pdf`, pdfData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+
       setSubmitted(true);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to submit proposal. Please try again.');
@@ -131,6 +154,7 @@ const AcceptInvite: React.FC = () => {
             <a href="#section-family" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>4. Family Details</a>
             <a href="#section-contact" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>5. Contact Information</a>
             <a href="#section-expectations" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>6. Expectations</a>
+            <a href="#section-uploads" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>7. Photos & Documents</a>
           </nav>
 
           {/* Main Form Content */}
@@ -364,6 +388,52 @@ const AcceptInvite: React.FC = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>What are you looking for in a partner?</label>
                 <textarea className="input-field" name="expectations" value={formData.expectations} onChange={handleInputChange} rows={4} placeholder="Education, location, family background preferences..."></textarea>
+              </div>
+            </div>
+
+            {/* Section 7: Uploads */}
+            <div id="section-uploads" className="card" style={{ scrollMarginTop: '24px' }}>
+              <h4 style={{ margin: '0 0 24px 0', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>7. Photos & Documents</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                <div style={{ background: 'var(--bg-hover)', padding: '24px', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                  <h5 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Upload Photos
+                  </h5>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Select one or multiple photos to showcase.</p>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={e => setPhotosToUpload(Array.from(e.target.files || []))}
+                    style={{ width: '100%', fontSize: '0.875rem' }} 
+                  />
+                  {photosToUpload.length > 0 && (
+                    <div style={{ marginTop: '12px', fontSize: '0.875rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
+                      ✓ {photosToUpload.length} photo(s) selected
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ background: 'var(--bg-hover)', padding: '24px', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                  <h5 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Upload Biodata (PDF)
+                  </h5>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Optional: Upload a pre-existing PDF biodata document.</p>
+                  <input 
+                    type="file" 
+                    accept="application/pdf" 
+                    onChange={e => setPdfToUpload(e.target.files?.[0] || null)}
+                    style={{ width: '100%', fontSize: '0.875rem' }} 
+                  />
+                  {pdfToUpload && (
+                    <div style={{ marginTop: '12px', fontSize: '0.875rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
+                      ✓ {pdfToUpload.name}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

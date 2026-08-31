@@ -355,7 +355,8 @@ def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user_id": user.id,
         "role": role.name if role else "INVITED_USER",
-        "vendor_id": user.vendor_id
+        "vendor_id": user.vendor_id,
+        "proposal_id": new_proposal.id
     }
 
 @router.get("/me")
@@ -455,6 +456,13 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     target_role = db.query(Role).filter(Role.id == target_user.role_id).first()
     if target_role and target_role.name == "ADMIN":
         raise HTTPException(status_code=403, detail="Cannot delete an ADMIN user")
+
+    # Clear constraints before deleting user
+    from ..models.proposal import Proposal
+    db.query(Proposal).filter(Proposal.created_by == target_user.id).update({"created_by": None}, synchronize_session=False)
+    
+    from ..models.vendor import Vendor
+    db.query(Vendor).filter(Vendor.owner_user_id == target_user.id).update({"owner_user_id": None}, synchronize_session=False)
 
     db.delete(target_user)
     db.commit()
