@@ -14,7 +14,6 @@ type Tab = 'birth_chart' | 'compat';
 const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalId, proposal, compareTarget }) => {
   const [activeTab, setActiveTab] = useState<Tab>('birth_chart');
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
   
   // Lifted states
   const [compatData, setCompatData] = useState<any>(null);
@@ -24,8 +23,6 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
 
   const fetchAnalysis = async () => {
     try {
-      const response = await api.get(`/api/v1/ai/proposals/${proposalId}/analysis`);
-      setAnalysis(response.data);
       // Try to fetch chart data if possible silently
       api.get(`/api/v1/astrology/chart/${proposalId}`).then(res => setChartData(res.data.chart)).catch(() => {});
       api.get(`/api/v1/astrology/navamsa/${proposalId}`).then(res => setNavamsaData(res.data.navamsa)).catch(() => {});
@@ -47,10 +44,6 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
     try {
       // Re-run all analyses in parallel
       const reqs: Promise<any>[] = [
-        api.post(`/api/v1/ai/proposals/${proposalId}/analyze`).then(async () => {
-           const a = await api.get(`/api/v1/ai/proposals/${proposalId}/analysis`);
-           setAnalysis(a.data);
-        }),
         api.post(`/api/v1/astrology/calculate-chart`, { proposal_id: proposalId }).then(res => setChartData(res.data.chart)),
         api.get(`/api/v1/astrology/navamsa/${proposalId}`).then(res => setNavamsaData(res.data.navamsa)),
         api.get(`/api/v1/astrology/dasha/${proposalId}`).then(res => setDashaData(res.data.dasha))
