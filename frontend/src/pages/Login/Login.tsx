@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
 
@@ -86,7 +86,7 @@ const Login = () => {
           `}</style>
           
           <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
-            Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 500, textDecoration: 'none' }}>Register here</Link>
+            Please contact support if you need an account.
           </div>
         </form>
       </div>

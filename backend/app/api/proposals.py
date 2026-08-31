@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from ..core.database import get_db
-from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback, ProposalMedicalRecord
+from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback, ProposalMedicalRecord, ProposalVersion
 from ..schemas.proposal import (
     ProposalCreate, ProposalUpdate, ProposalResponse,
     ProposalDiscussionCreate, ProposalDiscussionUpdate, ProposalDiscussionResponse,
@@ -12,6 +12,7 @@ from ..schemas.proposal import (
 )
 from ..core.permissions import require_vendor, get_current_user
 from ..models.user import User
+from ..models.role import Role
 import shutil
 import os
 import uuid
@@ -127,19 +128,26 @@ def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), cur
         
     return db_proposal
 
-def get_vendor_proposal_or_404(proposal_id: int, vendor_id: int, db: Session):
-    db_proposal = db.query(Proposal).filter(Proposal.id == proposal_id, Proposal.vendor_id == vendor_id).first()
+def get_vendor_proposal_or_404(proposal_id: int, vendor_id: int, db: Session, current_user: User):
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    
+    query = db.query(Proposal).filter(Proposal.id == proposal_id, Proposal.vendor_id == vendor_id)
+    if role and role.name == "INVITED_USER":
+        query = query.filter(Proposal.created_by == current_user.id)
+        
+    db_proposal = query.first()
+    
     if not db_proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return db_proposal
 
 @router.get("/{proposal_id}", response_model=ProposalResponse)
 def get_proposal(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
-    return get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    return get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
 
 @router.put("/{proposal_id}", response_model=ProposalResponse)
 def update_proposal(proposal_id: int, proposal: ProposalUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     
     update_data = proposal.model_dump(exclude_unset=True)
     photo_urls = update_data.pop('photo_urls', None)
@@ -166,13 +174,42 @@ def update_proposal(proposal_id: int, proposal: ProposalUpdate, db: Session = De
             new_photo = ProposalPhoto(proposal_id=db_proposal.id, photo_url=url)
             db.add(new_photo)
             
+    # Versioning
+    import json
+    snapshot = {
+        "name": db_proposal.name,
+        "age": db_proposal.age,
+        "current_city": db_proposal.current_city,
+        "dob": db_proposal.dob,
+        "tob": db_proposal.tob,
+        "pob": db_proposal.pob,
+        "height": db_proposal.height,
+        "weight": db_proposal.weight,
+        "complexion": db_proposal.complexion,
+        "education": db_proposal.education,
+        "is_working": db_proposal.is_working,
+        "company": db_proposal.company,
+        "job_title": db_proposal.job_title,
+        "salary_ctc": db_proposal.salary_ctc,
+    }
+    
+    last_version = db.query(ProposalVersion).filter(ProposalVersion.proposal_id == db_proposal.id).order_by(ProposalVersion.version_number.desc()).first()
+    new_version_num = last_version.version_number + 1 if last_version else 1
+    
+    new_version = ProposalVersion(
+        proposal_id=db_proposal.id,
+        version_number=new_version_num,
+        data_snapshot=snapshot
+    )
+    db.add(new_version)
+            
     db.commit()
     db.refresh(db_proposal)
     return db_proposal
 
 @router.delete("/{proposal_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_proposal(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     
     db.delete(db_proposal)
     db.commit()
@@ -186,7 +223,7 @@ async def upload_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
         
     if file_type not in ["photo", "pdf", "medical_record"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Must be 'photo', 'pdf', or 'medical_record'")
@@ -217,7 +254,7 @@ def delete_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     
     if file_type == "pdf":
         if db_proposal.pdf_url:
@@ -240,7 +277,7 @@ def delete_photo(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     photo = db.query(ProposalPhoto).filter(ProposalPhoto.id == photo_id, ProposalPhoto.proposal_id == proposal_id).first()
     
     if not photo:

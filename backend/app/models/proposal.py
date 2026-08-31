@@ -3,6 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
 
 class ProposalPhoto(Base):
     __tablename__ = "proposal_photos"
@@ -150,3 +152,14 @@ class ProposalExpense(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     proposal = relationship("Proposal", back_populates="expenses")
+
+class ProposalVersion(Base):
+    __tablename__ = "proposal_versions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="CASCADE"), index=True)
+    version_number = Column(Integer, nullable=False)
+    data_snapshot = Column(JSON().with_variant(JSONB, 'postgresql'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    proposal = relationship("Proposal")

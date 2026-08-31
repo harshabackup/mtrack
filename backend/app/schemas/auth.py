@@ -23,3 +23,17 @@ class Token(BaseModel):
     user_id: int
     role: str
     vendor_id: Optional[int]
+
+class InviteRequest(BaseModel):
+    email: EmailStr
+
+class AcceptInviteRequest(BaseModel):
+    token: str
+    full_name: str
+    phone: Optional[str] = None
+    name: str # Proposal Name
+    age: Optional[int] = None
+    current_city: Optional[str] = None
+    dob: Optional[str] = None
+    tob: Optional[str] = None
+    pob: Optional[str] = None

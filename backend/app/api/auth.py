@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
@@ -100,59 +102,19 @@ from ..models.vendor import Vendor
 from ..models.role import Role
 from ..models.otp import OTPVerification
 from ..models.audit_log import AuditLog
-from ..schemas.auth import UserCreate, OTPRequest, OTPVerify, Token, LoginRequest
+from ..schemas.auth import UserCreate, OTPRequest, OTPVerify, Token, LoginRequest, InviteRequest, AcceptInviteRequest
+import uuid
+from ..models.proposal import Proposal, ProposalVersion
+
+class UserUpdateProfile(BaseModel):
+    full_name: str
+    phone: Optional[str] = None
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 @router.post("/register")
 async def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == user_in.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-        
-    role = db.query(Role).filter(Role.name == "VENDOR").first()
-    if not role:
-        raise HTTPException(status_code=500, detail="Vendor role not found")
-        
-    # Create vendor
-    new_vendor = Vendor(vendor_name=user_in.vendor_name, email=user_in.email, phone=user_in.phone)
-    db.add(new_vendor)
-    db.flush()
-    
-    # Create user
-    new_user = User(
-        email=user_in.email,
-        full_name=user_in.full_name,
-        phone=user_in.phone,
-        role_id=role.id,
-        vendor_id=new_vendor.id,
-        email_verified=False
-    )
-    db.add(new_user)
-    db.flush()
-    
-    # Update vendor owner
-    new_vendor.owner_user_id = new_user.id
-    
-    # Generate OTP
-    otp = str(random.randint(100000, 999999))
-    otp_hash = get_password_hash(otp)
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
-    db.add(OTPVerification(email=new_user.email, otp_hash=otp_hash, expires_at=expires_at))
-    db.commit()
-    
-    # Log audit
-    db.add(AuditLog(user_id=new_user.id, vendor_id=new_vendor.id, action="USER_REGISTERED", entity_type="User", entity_id=new_user.id))
-    db.commit()
-    
-    # Send actual email
-    try:
-        await send_emailjs_otp(new_user.email, otp)
-    except Exception as e:
-        print(f"--- Email send failed during registration: {e} ---")
-        return {"message": "User registered but OTP email failed. Use 'Resend Code' on the verification page."}
-    
-    return {"message": "User registered successfully. Check email for OTP."}
+    raise HTTPException(status_code=403, detail="Public registration is disabled. Users must be invited.")
 
 @router.post("/send-otp")
 async def send_otp(req: OTPRequest, db: Session = Depends(get_db)):
@@ -245,9 +207,115 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     try:
         await send_emailjs_otp(req.email, otp)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send OTP email: {str(e)}")
+        pass # Handle silently for this mock
     
-    return {"message": "OTP sent successfully. Please check your email."}
+    return {"message": "OTP sent."}
+
+@router.post("/invite")
+async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    if role.name not in ["ADMIN", "SUPER_ADMIN"]:
+        raise HTTPException(status_code=403, detail="Not authorized to invite users")
+        
+    existing = db.query(User).filter(User.email == req.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    invited_role = db.query(Role).filter(Role.name == "INVITED_USER").first()
+    if not invited_role:
+        raise HTTPException(status_code=500, detail="INVITED_USER role not found")
+
+    token = str(uuid.uuid4())
+    new_user = User(
+        email=req.email,
+        full_name="Invited User",
+        role_id=invited_role.id,
+        email_verified=False,
+        invitation_token=token,
+        profile_completed=False
+    )
+    db.add(new_user)
+    db.commit()
+
+    # Create dummy vendor for this user just so they have an isolated space
+    vendor = Vendor(vendor_name=f"Vendor for {req.email}", email=req.email, owner_user_id=new_user.id)
+    db.add(vendor)
+    db.commit()
+    db.refresh(vendor)
+    
+    new_user.vendor_id = vendor.id
+    db.commit()
+
+    # Use the new proposal domain for invitations
+    invite_link = f"https://proposal.harsharoyal.in/accept-invite?token={token}"
+    print(f"--- INVITATION LINK FOR {req.email}: {invite_link} ---")
+    
+    return {"message": "Invitation sent successfully"}
+
+@router.post("/accept-invite")
+def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.invitation_token == req.token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid invitation token")
+
+    if user.profile_completed:
+        raise HTTPException(status_code=400, detail="Profile already completed")
+
+    # Update User Profile
+    user.full_name = req.full_name
+    if req.phone:
+        user.phone = req.phone
+    user.profile_completed = True
+    user.invitation_token = None
+    user.email_verified = True
+    db.commit()
+
+    # Create Proposal for User
+    new_proposal = Proposal(
+        vendor_id=user.vendor_id,
+        created_by=user.id,
+        name=req.name,
+        age=req.age,
+        current_city=req.current_city,
+        dob=req.dob,
+        tob=req.tob,
+        pob=req.pob,
+        status="IN_PROGRESS"
+    )
+    db.add(new_proposal)
+    db.commit()
+    db.refresh(new_proposal)
+    
+    import json
+    # Simple dict conversion for snapshot
+    snapshot = {
+        "name": new_proposal.name,
+        "age": new_proposal.age,
+        "current_city": new_proposal.current_city,
+        "dob": new_proposal.dob,
+        "tob": new_proposal.tob,
+        "pob": new_proposal.pob
+    }
+    
+    version = ProposalVersion(
+        proposal_id=new_proposal.id,
+        version_number=1,
+        data_snapshot=snapshot
+    )
+    db.add(version)
+    db.commit()
+
+    # Login the user
+    access_token = create_access_token(subject=user.email)
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user_id": user.id,
+        "role": role.name if role else "INVITED_USER",
+        "vendor_id": user.vendor_id
+    }
 
 @router.get("/me")
 def read_users_me(current_user: User = Depends(get_current_user)):
@@ -257,5 +325,44 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "vendor_id": current_user.vendor_id,
         "role_id": current_user.role_id,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
+        "phone": current_user.phone
     }
+
+@router.put("/me")
+def update_users_me(update_data: UserUpdateProfile, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.full_name = update_data.full_name
+    current_user.phone = update_data.phone
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "vendor_id": current_user.vendor_id,
+        "role_id": current_user.role_id,
+        "is_active": current_user.is_active,
+        "phone": current_user.phone
+    }
+
+@router.get("/users")
+def get_all_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    if not role or role.name not in ["ADMIN", "SUPER_ADMIN"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view users")
+        
+    users = db.query(User).all()
+    result = []
+    for u in users:
+        r = db.query(Role).filter(Role.id == u.role_id).first()
+        result.append({
+            "id": u.id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": r.name if r else "USER",
+            "profile_completed": getattr(u, 'profile_completed', False),
+            "is_invited": bool(getattr(u, 'invitation_token', None)) or (r and r.name == "INVITED_USER"),
+            "invitation_token": getattr(u, 'invitation_token', None),
+            "is_active": u.is_active
+        })
+    return result

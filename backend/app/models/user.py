@@ -20,5 +20,9 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
 
+    # Invitation fields
+    invitation_token = Column(String, nullable=True, index=True)
+    profile_completed = Column(Boolean, default=False)
+
     role = relationship("Role", back_populates="users")
     vendor = relationship("Vendor", back_populates="users", foreign_keys=[vendor_id])

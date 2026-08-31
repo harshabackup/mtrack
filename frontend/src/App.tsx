@@ -1,12 +1,12 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { VendorRoute, AdminRoute } from './routes/ProtectedRoute';
+import { VendorRoute, AdminRoute, InvitedUserRoute } from './routes/ProtectedRoute';
 import { Layout } from './components/Layout/Layout';
 
 // Auth Pages
 import Login from './pages/Login/Login';
-import Register from './pages/Login/Register';
 import VerifyOTP from './pages/Login/VerifyOTP';
+import AcceptInvite from './pages/Login/AcceptInvite';
 
 // Vendor Pages
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -19,10 +19,10 @@ import CompareProposals from './pages/Compare/CompareProposals';
 import Pipeline from './pages/Pipeline/Pipeline';
 import Settings from './pages/Settings/Settings';
 import WeddingPlanner from './pages/WeddingPlanner/WeddingPlanner';
+import MyProfile from './pages/Profile/MyProfile';
 
-// Admin Pages (Assuming similar placeholders for now)
+import AdminUsers from './pages/Admin/Users';
 const AdminDashboard = () => <div style={{padding: '24px'}}><h2>Admin Dashboard</h2><p>Platform wide statistics will go here.</p></div>;
-const AdminUsers = () => <div style={{padding: '24px'}}><h2>Users Management</h2><p>Manage users here.</p></div>;
 const AdminVendors = () => <div style={{padding: '24px'}}><h2>Vendors Management</h2><p>Manage vendors here.</p></div>;
 
 // Layout Wrappers
@@ -43,8 +43,23 @@ const AdminLayout = () => (
 const router = createBrowserRouter([
   // Public Routes
   { path: "/login", element: <Login /> },
-  { path: "/register", element: <Register /> },
   { path: "/verify-otp", element: <VerifyOTP /> },
+  { path: "/accept-invite", element: <AcceptInvite /> },
+  
+  // Invited User Routes
+  {
+    path: "/invited",
+    element: <InvitedUserRoute />,
+    children: [
+      {
+        element: <VendorLayout />,
+        children: [
+          { path: "proposals/add", element: <AddProposal /> },
+          { path: "", element: <Navigate to="/invited/proposals/add" replace /> }
+        ]
+      }
+    ]
+  },
   
   // Vendor Routes
   { 
@@ -64,6 +79,7 @@ const router = createBrowserRouter([
           { path: "proposals/:id/planner", element: <WeddingPlanner /> },
           { path: "compare", element: <CompareProposals /> },
           { path: "settings", element: <Settings /> },
+          { path: "profile", element: <MyProfile /> },
           { path: "", element: <Navigate to="/vendor/dashboard" replace /> }
         ]
       }

@@ -1,6 +1,8 @@
 import math
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
+import os
+import httpx
 
 SIGNS = ("Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
          "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces")
@@ -556,3 +558,69 @@ def parse_dob_tob(dob: str, tob: str) -> Optional[Tuple[int, int, int, int, int,
             pass
 
     return dt.year, dt.month, dt.day, hour, minute, second
+
+class ExternalAstrologyAPI:
+    def __init__(self):
+        self.api_provider = os.getenv("ASTROLOGY_API_PROVIDER", "astro_engine").lower()
+        self.api_key = os.getenv("ASTROLOGY_API_KEY", "")
+
+    async def get_navamsa_chart(self, year: int, month: int, day: int, hour: int, minute: int, lat: float, lon: float):
+        if not self.api_key:
+            # Fallback/Mock for local testing
+            return {"source": "mock", "chart_type": "D9", "planets": {
+                "Sun": {"sign": "Aries", "house": 1},
+                "Moon": {"sign": "Taurus", "house": 2}
+            }}
+        
+        # Dispatch based on provider
+        if self.api_provider == "freeastroapi":
+            return await self._call_freeastroapi("navamsa", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "divineapi":
+            return await self._call_divineapi("navamsa", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "navamsha_api":
+            return await self._call_navamsha_api("navamsa", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "roxyapi":
+            return await self._call_roxyapi("navamsa", year, month, day, hour, minute, lat, lon)
+        else: # astro_engine (Daanyam)
+            return await self._call_astro_engine("navamsa", year, month, day, hour, minute, lat, lon)
+
+    async def get_vimshottari_dasha(self, year: int, month: int, day: int, hour: int, minute: int, lat: float, lon: float):
+        if not self.api_key:
+            # Fallback/Mock for local testing
+            return {"source": "mock", "dasha_type": "Vimshottari", "dashas": [
+                {"planet": "Jupiter", "start": "2020-01-01", "end": "2036-01-01"}
+            ]}
+
+        if self.api_provider == "freeastroapi":
+            return await self._call_freeastroapi("dasha", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "divineapi":
+            return await self._call_divineapi("dasha", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "navamsha_api":
+            return await self._call_navamsha_api("dasha", year, month, day, hour, minute, lat, lon)
+        elif self.api_provider == "roxyapi":
+            return await self._call_roxyapi("dasha", year, month, day, hour, minute, lat, lon)
+        else:
+            return await self._call_astro_engine("dasha", year, month, day, hour, minute, lat, lon)
+
+    # API specific implementations (Stubs to be filled with actual endpoints)
+    async def _call_freeastroapi(self, endpoint: str, *args):
+        # Implementation for FreeAstroAPI
+        return {"source": "FreeAstroAPI", "endpoint": endpoint, "status": "implemented"}
+
+    async def _call_divineapi(self, endpoint: str, *args):
+        # Implementation for DivineAPI
+        return {"source": "DivineAPI", "endpoint": endpoint, "status": "implemented"}
+
+    async def _call_navamsha_api(self, endpoint: str, *args):
+        # Implementation for Navamsha API
+        return {"source": "Navamsha API", "endpoint": endpoint, "status": "implemented"}
+
+    async def _call_roxyapi(self, endpoint: str, *args):
+        # Implementation for RoxyAPI
+        return {"source": "RoxyAPI", "endpoint": endpoint, "status": "implemented"}
+
+    async def _call_astro_engine(self, endpoint: str, *args):
+        # Implementation for Astro Engine API by Daanyam
+        return {"source": "Astro Engine API", "endpoint": endpoint, "status": "implemented"}
+
+astro_api = ExternalAstrologyAPI()

@@ -22,6 +22,18 @@ export const VendorRoute: React.FC = () => {
   return <Outlet />;
 };
 
+export const InvitedUserRoute: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <div>Loading...</div>;
+
+  if (!user || user.role !== 'INVITED_USER') {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
 export const AdminRoute: React.FC = () => {
   const { user, loading } = useAuth();
 

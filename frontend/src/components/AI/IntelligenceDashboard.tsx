@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import BirthChartSection from './BirthChartSection';
-import PersonalitySection from './PersonalitySection';
-import DoshaReportSection from './DoshaReportSection';
 import CompatibilitySection from './CompatibilitySection';
 
 interface IntelligenceDashboardProps {
@@ -11,7 +9,7 @@ interface IntelligenceDashboardProps {
   compareTarget?: { id: number; name?: string } | null;
 }
 
-type Tab = 'overview' | 'birth_chart' | 'personality' | 'dosha' | 'compat';
+type Tab = 'overview' | 'birth_chart' | 'compat';
 
 const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalId, proposal, compareTarget }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -19,10 +17,10 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
   const [analysis, setAnalysis] = useState<any>(null);
   
   // Lifted states
-  const [personalityData, setPersonalityData] = useState<any>(null);
-  const [doshaData, setDoshaData] = useState<any>(null);
   const [compatData, setCompatData] = useState<any>(null);
   const [chartData, setChartData] = useState<any>(null);
+  const [navamsaData, setNavamsaData] = useState<any>(null);
+  const [dashaData, setDashaData] = useState<any>(null);
 
   const fetchAnalysis = async () => {
     try {
@@ -30,6 +28,8 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
       setAnalysis(response.data);
       // Try to fetch chart data if possible silently
       api.get(`/api/v1/astrology/chart/${proposalId}`).then(res => setChartData(res.data.chart)).catch(() => {});
+      api.get(`/api/v1/astrology/navamsa/${proposalId}`).then(res => setNavamsaData(res.data.navamsa)).catch(() => {});
+      api.get(`/api/v1/astrology/dasha/${proposalId}`).then(res => setDashaData(res.data.dasha)).catch(() => {});
     } catch (error: any) {
       if (error.response?.status !== 404) {
         console.error('Failed to fetch AI analysis:', error);
@@ -51,9 +51,9 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
            const a = await api.get(`/api/v1/ai/proposals/${proposalId}/analysis`);
            setAnalysis(a.data);
         }),
-        api.post(`/api/v1/ai/proposals/${proposalId}/personality`).then(res => setPersonalityData(res.data.personality)),
-        api.post(`/api/v1/ai/proposals/${proposalId}/dosha-report`).then(res => setDoshaData(res.data)),
-        api.post(`/api/v1/astrology/calculate-chart`, { proposal_id: proposalId }).then(res => setChartData(res.data.chart))
+        api.post(`/api/v1/astrology/calculate-chart`, { proposal_id: proposalId }).then(res => setChartData(res.data.chart)),
+        api.get(`/api/v1/astrology/navamsa/${proposalId}`).then(res => setNavamsaData(res.data.navamsa)),
+        api.get(`/api/v1/astrology/dasha/${proposalId}`).then(res => setDashaData(res.data.dasha))
       ];
 
       if (compareTarget) {
@@ -76,8 +76,6 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
   const tabs: Array<{ key: Tab; label: string; icon?: React.ReactNode }> = [
     { key: 'overview', label: 'Profile Analysis', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg> },
     { key: 'birth_chart', label: 'Birth Chart', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> },
-    { key: 'personality', label: 'Personality', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> },
-    { key: 'dosha', label: 'Dosha Report', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> },
   ];
 
   if (compareTarget) {
@@ -150,16 +148,12 @@ const IntelligenceDashboard: React.FC<IntelligenceDashboardProps> = ({ proposalI
             tob={proposal?.tob}
             pob={proposal?.pob}
             preloadedData={chartData}
+            navamsaData={navamsaData}
+            dashaData={dashaData}
           />
         </div>
 
-        <div style={{ display: activeTab === 'personality' ? 'block' : 'none' }}>
-          <PersonalitySection proposalId={proposalId} preloadedData={personalityData} isAnalyzing={analyzing} />
-        </div>
 
-        <div style={{ display: activeTab === 'dosha' ? 'block' : 'none' }}>
-          <DoshaReportSection proposalId={proposalId} preloadedData={doshaData} isAnalyzing={analyzing} />
-        </div>
 
         {compareTarget && (
           <div style={{ display: activeTab === 'compat' ? 'block' : 'none' }}>

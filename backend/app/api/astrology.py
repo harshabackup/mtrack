@@ -112,3 +112,51 @@ def compatibility(payload: CompatibilityPayload, db: Session = Depends(get_db), 
         "proposal_2": {"id": p2.id, "name": p2.name},
         "ashtakoota": result,
     }
+
+@router.get("/navamsa/{proposal_id}")
+async def get_navamsa(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
+    proposal = get_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    if not proposal.dob:
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    
+    parsed = astrology_engine.parse_dob_tob(proposal.dob, proposal.tob)
+    if not parsed:
+        raise HTTPException(status_code=400, detail="Invalid date or time of birth")
+        
+    lat, lon, _tz = None, None, None
+    coords = get_lat_lon(proposal.pob)
+    if coords:
+        lat, lon, _tz = coords
+    elif proposal.pob:
+        lat, lon = 17.3850, 78.4867
+        
+    if lat is None or lon is None:
+        raise HTTPException(status_code=400, detail="Birth place is required")
+        
+    year, month, day, hour, minute, second = parsed
+    result = await astrology_engine.astro_api.get_navamsa_chart(year, month, day, hour, minute, lat, lon)
+    return {"proposal_id": proposal_id, "navamsa": result}
+
+@router.get("/dasha/{proposal_id}")
+async def get_dasha(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
+    proposal = get_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    if not proposal.dob:
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    
+    parsed = astrology_engine.parse_dob_tob(proposal.dob, proposal.tob)
+    if not parsed:
+        raise HTTPException(status_code=400, detail="Invalid date or time of birth")
+        
+    lat, lon, _tz = None, None, None
+    coords = get_lat_lon(proposal.pob)
+    if coords:
+        lat, lon, _tz = coords
+    elif proposal.pob:
+        lat, lon = 17.3850, 78.4867
+        
+    if lat is None or lon is None:
+        raise HTTPException(status_code=400, detail="Birth place is required")
+        
+    year, month, day, hour, minute, second = parsed
+    result = await astrology_engine.astro_api.get_vimshottari_dasha(year, month, day, hour, minute, lat, lon)
+    return {"proposal_id": proposal_id, "dasha": result}

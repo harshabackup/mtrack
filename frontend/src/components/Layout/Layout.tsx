@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import GlobalChatWidget from '../GlobalChat/GlobalChatWidget';
+import { useAuth } from '../../context/AuthContext';
 
 export const Layout = ({ children }: { children?: ReactNode }) => {
   const location = useLocation();
+  const { user } = useAuth();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
@@ -20,8 +22,13 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
     { path: '/vendor/dashboard', label: 'Overview', icon: <path d="M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z" /> },
     { path: '/vendor/pipeline', label: 'Pipeline', icon: <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" /> },
     { path: '/vendor/proposals', label: 'Proposals', icon: <path d="M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /> },
-    { path: '/vendor/settings', label: 'Settings', icon: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /> }
+    { path: '/vendor/settings', label: 'Settings', icon: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /> },
+    { path: '/vendor/profile', label: 'My Profile', icon: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> }
   ];
+
+  const visibleMenuItems = user?.role === 'INVITED_USER' 
+    ? [] // Hide all for invited users, they only see their add page
+    : menuItems;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -47,7 +54,7 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
           </div>
           
           <nav className={`topbar-nav ${mobileMenuOpen ? 'mobile-open' : ''}`} style={{ display: 'flex', gap: '8px' }}>
-            {menuItems.map(item => {
+            {visibleMenuItems.map(item => {
               const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
               return (
                 <Link 
@@ -87,7 +94,11 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
             <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '4px' }}>
               Logout
             </button>
-            <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="profile-pic" />
+            {user?.role !== 'INVITED_USER' && (
+              <Link to="/vendor/profile">
+                <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="profile-pic" />
+              </Link>
+            )}
           </div>
         </div>
       </header>

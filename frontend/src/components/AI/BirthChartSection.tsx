@@ -28,6 +28,8 @@ interface BirthChartSectionProps {
   tob?: string | null;
   pob?: string | null;
   preloadedData?: ChartData | null;
+  navamsaData?: any;
+  dashaData?: any;
 }
 
 const planetOrder = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu'];
@@ -49,7 +51,7 @@ const elementColor: Record<string, string> = {
   water: '#7B1FA2',
 };
 
-const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData }) => {
+const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData, navamsaData, dashaData }) => {
   const [chart, setChart] = useState<ChartData | null>(null);
 
   const [copied, setCopied] = useState(false);
@@ -222,6 +224,63 @@ const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData }) 
           ))}
         </div>
       </div>
+
+      {navamsaData && (
+        <div className="card" style={{ padding: '24px' }}>
+          <h4 style={{ margin: '0 0 16px', color: 'var(--accent-primary)' }}>Navamsa (D9) Chart</h4>
+          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <table className="data-table" style={{ margin: 0, minWidth: '720px' }}>
+              <thead>
+                <tr>
+                  <th>Planet</th>
+                  <th>Sign</th>
+                  <th>House</th>
+                </tr>
+              </thead>
+              <tbody>
+                {navamsaData.planets && Object.entries(navamsaData.planets).map(([planet, data]: [string, any]) => (
+                  <tr key={planet}>
+                    <td style={{ fontWeight: 600 }}>{planet}</td>
+                    <td>
+                      <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '12px', color: '#fff', background: elementColor[elementOf(data.sign)] || '#7B1FA2', fontSize: '0.8rem' }}>
+                        {data.sign}
+                      </span>
+                    </td>
+                    <td>{data.house}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {dashaData && dashaData.dashas && (
+        <div className="card" style={{ padding: '24px' }}>
+          <h4 style={{ margin: '0 0 16px', color: 'var(--accent-primary)' }}>Vimshottari Mahadasha</h4>
+          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <table className="data-table" style={{ margin: 0, minWidth: '720px' }}>
+              <thead>
+                <tr>
+                  <th>Planet</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashaData.dashas.map((dasha: any, idx: number) => (
+                  <tr key={idx}>
+                    <td style={{ fontWeight: 600 }}>{dasha.planet}</td>
+                    <td>{dasha.start}</td>
+                    <td>{dasha.end}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
