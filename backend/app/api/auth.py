@@ -335,12 +335,14 @@ def update_users_me(update_data: UserUpdateProfile, db: Session = Depends(get_db
     current_user.phone = update_data.phone
     db.commit()
     db.refresh(current_user)
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
     return {
         "id": current_user.id,
         "email": current_user.email,
         "full_name": current_user.full_name,
         "vendor_id": current_user.vendor_id,
         "role_id": current_user.role_id,
+        "role": role.name if role else "USER",
         "is_active": current_user.is_active,
         "phone": current_user.phone
     }

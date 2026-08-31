@@ -41,11 +41,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       api.get('/api/v1/auth/me')
         .then(response => {
+          const fetchedRole = response.data.role || role;
+          
+          if (fetchedRole !== role) {
+            localStorage.setItem('role', fetchedRole);
+          }
+          
           setUser({
             id: response.data.id,
             email: response.data.email,
             full_name: response.data.full_name,
-            role: role,
+            role: fetchedRole,
             vendor_id: response.data.vendor_id
           });
         })
