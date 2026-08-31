@@ -768,10 +768,6 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
           onClick={() => setActiveTab('medical_records')}
           style={{ background: 'none', border: 'none', borderBottom: activeTab === 'medical_records' ? '2px solid var(--accent-primary)' : '2px solid transparent', padding: '8px 16px', cursor: 'pointer', fontWeight: activeTab === 'medical_records' ? 600 : 400, color: activeTab === 'medical_records' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
         >Medical Records</button>
-        <button 
-          onClick={() => setActiveTab('ai_intelligence')}
-          style={{ background: 'none', border: 'none', borderBottom: activeTab === 'ai_intelligence' ? '2px solid var(--accent-primary)' : '2px solid transparent', padding: '8px 16px', cursor: 'pointer', fontWeight: activeTab === 'ai_intelligence' ? 600 : 400, color: activeTab === 'ai_intelligence' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
-        >✨ AI Intelligence</button>
       </div>
 
       {activeTab === 'medical_records' && (
@@ -782,14 +778,6 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
             api.get(`/api/v1/proposals/${id}`).then(res => setProposal(res.data));
           }}
         />
-      )}
-
-      {activeTab === 'ai_intelligence' && (
-        <React.Suspense fallback={<div>Loading AI...</div>}>
-          <div style={{ marginTop: '24px' }}>
-            {React.createElement(React.lazy(() => import('../../components/AI/IntelligenceDashboard')), { proposalId: Number(id), proposal })}
-          </div>
-        </React.Suspense>
       )}
 
       {activeTab === 'overview' && (
