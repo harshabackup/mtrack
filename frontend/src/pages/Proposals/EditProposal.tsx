@@ -208,7 +208,9 @@ const EditProposal = ({ proposalId, isProfileMode }: { proposalId?: string, isPr
           {/* Sticky Sidebar Navigation */}
           <nav style={{ flex: '0 0 250px', position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <h5 style={{ margin: '0 0 16px 0', fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>Navigation</h5>
-            <a href="#section-pipeline" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500, background: 'var(--bg-hover)' }}>Pipeline Status</a>
+            {!isProfileMode && (
+              <a href="#section-pipeline" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500, background: 'var(--bg-hover)' }}>Pipeline Status</a>
+            )}
             <a href="#section-personal" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>1. Personal Details</a>
             <a href="#section-astrology" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>2. Astrology</a>
             <a href="#section-career" style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}>3. Education & Career</a>
@@ -220,23 +222,25 @@ const EditProposal = ({ proposalId, isProfileMode }: { proposalId?: string, isPr
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
             {/* Pipeline Status */}
-            <div id="section-pipeline" className="card" style={{ scrollMarginTop: '24px', background: 'var(--accent-light)', border: '1px solid var(--accent-primary)' }}>
-              <h4 style={{ color: 'var(--accent-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-                Pipeline Status
-              </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Update where this proposal is currently at in your pipeline.</p>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <select className="input-field" name="status" value={formData.status} onChange={handleInputChange} style={{ fontWeight: 600 }}>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="CONTACTED">Contacted</option>
-                  <option value="SHORTLISTED">Shortlisted</option>
-                  <option value="PARENTS_MEET">Parents Meet</option>
-                  <option value="FINALIZED">Finalized</option>
-                  <option value="REJECTED">Rejected</option>
-                </select>
+            {!isProfileMode && (
+              <div id="section-pipeline" className="card" style={{ scrollMarginTop: '24px', background: 'var(--accent-light)', border: '1px solid var(--accent-primary)' }}>
+                <h4 style={{ color: 'var(--accent-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                  Pipeline Status
+                </h4>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>Update where this proposal is currently at in your pipeline.</p>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <select className="input-field" name="status" value={formData.status} onChange={handleInputChange} style={{ fontWeight: 600 }}>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="CONTACTED">Contacted</option>
+                    <option value="SHORTLISTED">Shortlisted</option>
+                    <option value="PARENTS_MEET">Parents Meet</option>
+                    <option value="FINALIZED">Finalized</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Section 1: Personal Info */}
             <div id="section-personal" className="card" style={{ scrollMarginTop: '24px' }}>
