@@ -33,11 +33,31 @@ const VendorLayout = () => (
 );
 
 const AdminLayout = () => (
-  // In a real app, AdminLayout would have a different sidebar.
-  // We reuse Layout for now, but it could conditionally render admin links
   <Layout>
     <Outlet />
   </Layout>
+);
+
+// Minimal layout for invited users - only logo + logout, no nav tabs
+const InvitedLayout = () => (
+  <div style={{ minHeight: '100vh', background: 'var(--bg-app)' }}>
+    <header className="topbar">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.02em' }}>
+          <img src="/logo.png" alt="MAPP Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+          MAPP
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '4px' }}>
+          Logout
+        </button>
+      </div>
+    </header>
+    <main style={{ margin: '0 auto', width: '100%', maxWidth: '1440px', padding: '24px' }}>
+      <Outlet />
+    </main>
+  </div>
 );
 
 const router = createBrowserRouter([
@@ -46,13 +66,13 @@ const router = createBrowserRouter([
   { path: "/verify-otp", element: <VerifyOTP /> },
   { path: "/accept-invite", element: <AcceptInvite /> },
   
-  // Invited User Routes
+  // Invited User Routes — minimal layout, only AddProposal form
   {
     path: "/invited",
     element: <InvitedUserRoute />,
     children: [
       {
-        element: <VendorLayout />,
+        element: <InvitedLayout />,
         children: [
           { path: "proposals/add", element: <AddProposal /> },
           { path: "", element: <Navigate to="/invited/proposals/add" replace /> }
