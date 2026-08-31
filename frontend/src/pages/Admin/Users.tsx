@@ -88,7 +88,7 @@ const Users = () => {
   });
 
   return (
-    <div style={{ padding: '28px', maxWidth: '1100px' }}>
+    <div style={{ padding: '28px', maxWidth: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
@@ -187,7 +187,7 @@ const Users = () => {
                         }}
                         style={{ ...btnStyle('#6b7280'), fontSize: '11px' }}
                       >
-                        📋 Copy Link
+                        Copy Link
                       </button>
                     ) : (
                       <span style={{ fontSize: '12px', color: '#d1d5db' }}>—</span>
@@ -196,20 +196,24 @@ const Users = () => {
 
                   {/* Actions */}
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        onClick={() => { setEditingUser(u); setEditRole(u.role); }}
-                        style={btnStyle('#10b981')}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(u)}
-                        style={btnStyle('#ef4444')}
-                      >
-                        🗑️ Delete
-                      </button>
-                    </div>
+                    {u.role !== 'ADMIN' ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={() => { setEditingUser(u); setEditRole(u.role); }}
+                          style={btnStyle('#10b981')}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(u)}
+                          style={btnStyle('#ef4444')}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>Cannot modify</span>
+                    )}
                   </td>
                 </tr>
               ))}

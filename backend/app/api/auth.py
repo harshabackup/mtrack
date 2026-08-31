@@ -425,6 +425,10 @@ def update_user_role(user_id: int, req: UpdateRoleRequest, db: Session = Depends
     target_user = db.query(User).filter(User.id == user_id).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    target_role = db.query(Role).filter(Role.id == target_user.role_id).first()
+    if target_role and target_role.name == "ADMIN":
+        raise HTTPException(status_code=403, detail="Cannot modify an ADMIN user")
 
     new_role = db.query(Role).filter(Role.name == req.role).first()
     if not new_role:
@@ -447,6 +451,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     target_user = db.query(User).filter(User.id == user_id).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    target_role = db.query(Role).filter(Role.id == target_user.role_id).first()
+    if target_role and target_role.name == "ADMIN":
+        raise HTTPException(status_code=403, detail="Cannot delete an ADMIN user")
 
     db.delete(target_user)
     db.commit()

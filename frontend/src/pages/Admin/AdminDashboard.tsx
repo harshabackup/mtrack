@@ -87,28 +87,24 @@ const AdminDashboard: React.FC = () => {
     {
       label: 'Total Proposals',
       value: stats?.total_proposals ?? 0,
-      icon: '📋',
       color: '#3b82f6',
       bg: '#eff6ff',
     },
     {
       label: 'Total Users',
       value: stats?.total_users ?? 0,
-      icon: '👥',
       color: '#10b981',
       bg: '#f0fdf4',
     },
     {
       label: 'Pending Invites',
       value: stats?.pending_invites ?? 0,
-      icon: '✉️',
       color: '#f59e0b',
       bg: '#fffbeb',
     },
     {
       label: 'Active Proposals',
       value: stats?.proposals_by_status['ACTIVE'] ?? 0,
-      icon: '✅',
       color: '#8b5cf6',
       bg: '#f5f3ff',
     },
@@ -139,9 +135,6 @@ const AdminDashboard: React.FC = () => {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>{card.label}</span>
-              <div style={{ background: card.bg, borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
-                {card.icon}
-              </div>
             </div>
             <div style={{ fontSize: '30px', fontWeight: 700, color: '#111827' }}>{card.value}</div>
           </div>
