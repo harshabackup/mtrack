@@ -355,13 +355,15 @@ def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/me")
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
     return {
         "id": current_user.id,
         "email": current_user.email,
         "full_name": current_user.full_name,
         "vendor_id": current_user.vendor_id,
         "role_id": current_user.role_id,
+        "role": role.name if role else "VENDOR",
         "is_active": current_user.is_active,
         "phone": current_user.phone
     }

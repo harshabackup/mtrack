@@ -25,44 +25,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
     const userId = localStorage.getItem('user_id');
-    const vendorId = localStorage.getItem('vendor_id');
 
-    if (token && role && userId) {
-      // Set user immediately so they don't get logged out on refresh or network error
-      setUser({
-        id: parseInt(userId),
-        email: '',
-        full_name: '',
-        role: role,
-        vendor_id: vendorId ? parseInt(vendorId) : undefined
-      });
-
+    if (token && userId) {
+      // Always fetch from the server - never trust stale localStorage role
       api.get('/api/v1/auth/me')
         .then(response => {
-          const fetchedRole = response.data.role || role;
-          
-          if (fetchedRole !== role) {
-            localStorage.setItem('role', fetchedRole);
+          const fetchedRole = response.data.role || 'VENDOR';
+          const vendorId = response.data.vendor_id;
+
+          localStorage.setItem('role', fetchedRole);
+          if (vendorId) {
+            localStorage.setItem('vendor_id', vendorId.toString());
           }
-          
+
           setUser({
             id: response.data.id,
             email: response.data.email,
             full_name: response.data.full_name,
             role: fetchedRole,
-            vendor_id: response.data.vendor_id
+            vendor_id: vendorId
           });
         })
         .catch((error) => {
-          // Only log out if it's explicitly an auth error (401/403). 
           if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             localStorage.removeItem('token');
             localStorage.removeItem('role');
             localStorage.removeItem('user_id');
             localStorage.removeItem('vendor_id');
             setUser(null);
+          } else {
+            const role = localStorage.getItem('role');
+            const vendorId = localStorage.getItem('vendor_id');
+            setUser({
+              id: parseInt(userId),
+              email: '',
+              full_name: '',
+              role: role || 'VENDOR',
+              vendor_id: vendorId ? parseInt(vendorId) : undefined
+            });
           }
         })
         .finally(() => {

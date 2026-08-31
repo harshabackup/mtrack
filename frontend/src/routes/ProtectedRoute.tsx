@@ -15,7 +15,10 @@ export const VendorRoute: React.FC = () => {
 
   if (loading) return <div>Loading...</div>;
 
-  if (!user || user.role !== 'VENDOR') {
+  const isVendor = user?.role === 'VENDOR';
+  const isAdminWithVendorId = (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && user?.vendor_id;
+
+  if (!user || (!isVendor && !isAdminWithVendorId)) {
     return <Navigate to="/login" replace />;
   }
 
