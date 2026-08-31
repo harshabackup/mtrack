@@ -22,8 +22,8 @@ import WeddingPlanner from './pages/WeddingPlanner/WeddingPlanner';
 import MyProfile from './pages/Profile/MyProfile';
 
 import AdminUsers from './pages/Admin/Users';
-const AdminDashboard = () => <div style={{padding: '24px'}}><h2>Admin Dashboard</h2><p>Platform wide statistics will go here.</p></div>;
-const AdminVendors = () => <div style={{padding: '24px'}}><h2>Vendors Management</h2><p>Manage vendors here.</p></div>;
+import AdminDashboard from './pages/Admin/AdminDashboard';
+
 
 // Layout Wrappers
 const VendorLayout = () => (
@@ -96,7 +96,6 @@ const router = createBrowserRouter([
         children: [
           { path: "dashboard", element: <AdminDashboard /> },
           { path: "users", element: <AdminUsers /> },
-          { path: "vendors", element: <AdminVendors /> },
           { path: "", element: <Navigate to="/admin/dashboard" replace /> }
         ]
       }

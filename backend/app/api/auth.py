@@ -411,3 +411,43 @@ def get_all_users(db: Session = Depends(get_db), current_user: User = Depends(ge
             "is_active": u.is_active
         })
     return result
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str
+
+@router.put("/users/{user_id}/role")
+def update_user_role(user_id: int, req: UpdateRoleRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    admin_role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    if not admin_role or admin_role.name != "ADMIN":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_role = db.query(Role).filter(Role.name == req.role).first()
+    if not new_role:
+        raise HTTPException(status_code=400, detail=f"Role '{req.role}' not found")
+
+    target_user.role_id = new_role.id
+    db.commit()
+    return {"message": f"Role updated to {req.role}"}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    admin_role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    if not admin_role or admin_role.name != "ADMIN":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(target_user)
+    db.commit()
+    return {"message": "User deleted"}
