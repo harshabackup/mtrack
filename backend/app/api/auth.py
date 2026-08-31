@@ -321,6 +321,17 @@ def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
         dob=req.dob,
         tob=req.tob,
         pob=req.pob,
+        height=req.height,
+        weight=str(req.weight) if req.weight else None,
+        complexion=req.complexion,
+        religion=req.religion,
+        caste=req.caste,
+        sub_caste=req.sub_caste,
+        gotram=req.gotram,
+        rasi=req.rasi,
+        nakshatra=req.nakshatra,
+        paadam=req.paadam,
+        dosham=req.dosham,
         status="IN_PROGRESS"
     )
     db.add(new_proposal)
