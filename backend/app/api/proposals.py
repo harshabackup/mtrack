@@ -153,12 +153,14 @@ def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), cur
         
     return db_proposal
 
-def get_vendor_proposal_or_404(proposal_id: int, vendor_id: int, db: Session, current_user: User):
-    role = db.query(Role).filter(Role.id == current_user.role_id).first()
-    
+def get_vendor_proposal_or_404(proposal_id: int, vendor_id: int, db: Session, current_user: User = None):
     query = db.query(Proposal).filter(Proposal.id == proposal_id, Proposal.vendor_id == vendor_id)
-    if role and role.name == "INVITED_USER":
-        query = query.filter(Proposal.created_by == current_user.id)
+    
+    # If a user is passed and they have a restricted role, filter to their own proposals
+    if current_user:
+        role = db.query(Role).filter(Role.id == current_user.role_id).first()
+        if role and role.name == "USER":
+            query = query.filter(Proposal.created_by == current_user.id)
         
     db_proposal = query.first()
     
