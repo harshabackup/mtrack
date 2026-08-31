@@ -34,7 +34,26 @@ const VerifyOTP = () => {
     try {
       const response = await api.post('/api/v1/auth/verify-otp', { email, otp });
       const { access_token, user_id, role, vendor_id } = response.data;
-      
+
+      const isProposalPortal = window.location.hostname === 'proposal.harsharoyal.in';
+      const isAdminPortal = window.location.hostname === 'mtrack.harsharoyal.in';
+
+      // Block ADMIN from proposal portal
+      if (isProposalPortal && (role === 'ADMIN' || role === 'SUPER_ADMIN')) {
+        localStorage.clear();
+        setError('Admin accounts cannot access the proposal portal. Please use mtrack.harsharoyal.in');
+        setLoading(false);
+        return;
+      }
+
+      // Block non-ADMIN from admin portal
+      if (isAdminPortal && role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+        localStorage.clear();
+        setError('This portal is for administrators only. Please use proposal.harsharoyal.in');
+        setLoading(false);
+        return;
+      }
+
       // Use AuthContext login
       login(access_token, { id: user_id, email, full_name: '', role, vendor_id });
       
