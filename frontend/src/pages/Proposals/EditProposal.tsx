@@ -129,44 +129,37 @@ const EditProposal = ({ proposalId, isProfileMode }: { proposalId?: string, isPr
     setIsSubmitting(true);
     
     try {
-      // 1. Upload files to Supabase Storage first
-      const photoUrls: string[] = [];
-      let finalPdfUrl: string | null = null;
-      
-      const { supabase } = await import('../../supabaseClient');
-      
-      if (photosToUpload.length > 0) {
-        showNotification("Uploading photos to Supabase...", "success");
-        for (const file of photosToUpload) {
-          const filePath = `${id}/photos/${file.name}`;
-          const { error } = await supabase.storage.from('mtrack').upload(filePath, file, { upsert: true });
-          if (error) throw error;
-          const { data } = supabase.storage.from('mtrack').getPublicUrl(filePath);
-          photoUrls.push(data.publicUrl);
-        }
-      }
-      
-      if (pdfToUpload) {
-        showNotification("Uploading PDF to Supabase...", "success");
-        const filePath = `${id}/pdf/${pdfToUpload.name}`;
-        const { error } = await supabase.storage.from('mtrack').upload(filePath, pdfToUpload, { upsert: true });
-        if (error) throw error;
-        const { data } = supabase.storage.from('mtrack').getPublicUrl(filePath);
-        finalPdfUrl = data.publicUrl;
-      }
-
-      // 2. Update Proposal with URLs included
+      // 1. Update Proposal without URLs first
       const payload = {
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
         is_working: formData.is_working === 'yes',
         dob: formData.dob || null,
         tob: formData.tob || null,
-        photo_urls: photoUrls.length > 0 ? photoUrls : undefined,
-        pdf_url: finalPdfUrl || (formData as any).pdf_url // keep old if not updated
       };
 
       await api.put(`/api/v1/proposals/${id}`, payload);
+      
+      // 2. Upload files to backend
+      if (photosToUpload.length > 0) {
+        showNotification("Uploading photos...", "success");
+        for (const file of photosToUpload) {
+          const fileData = new FormData();
+          fileData.append('file', file);
+          await api.post(`/api/v1/proposals/${id}/upload?file_type=photo`, fileData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+      
+      if (pdfToUpload) {
+        showNotification("Uploading PDF...", "success");
+        const pdfData = new FormData();
+        pdfData.append('file', pdfToUpload);
+        await api.post(`/api/v1/proposals/${id}/upload?file_type=pdf`, pdfData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
 
       showNotification("Profile saved successfully!", "success");
       if (!isProfileMode) {

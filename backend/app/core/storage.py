@@ -1,43 +1,40 @@
 import os
-from supabase import create_client, Client
 from fastapi import HTTPException
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-BUCKET_NAME = "proposal_files"
-
-def get_supabase_client() -> Client:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise HTTPException(status_code=500, detail="Supabase Storage credentials are not configured properly.")
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+# Base URL where the backend is hosted. 
+# We'll use the API_URL env if available, else fallback.
+BASE_URL = os.getenv("API_URL", "http://localhost:8000")
+STORAGE_DIR = "storage"
 
 def upload_file_to_supabase(file_bytes: bytes, filename: str, content_type: str) -> str:
     """
-    Uploads a file to Supabase Storage and returns the public URL.
+    Saves a file to the local storage directory and returns the public URL.
+    (Kept the function name `upload_file_to_supabase` to avoid refactoring the entire codebase)
     """
-    supabase = get_supabase_client()
     try:
-        # Upload the file
-        res = supabase.storage.from_(BUCKET_NAME).upload(
-            path=filename,
-            file=file_bytes,
-            file_options={"content-type": content_type}
-        )
+        # Create full path ensuring directories exist
+        full_path = os.path.join(STORAGE_DIR, filename)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
         
-        # Get public URL
-        public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
-        return public_url
+        with open(full_path, "wb") as f:
+            f.write(file_bytes)
+            
+        # Return the public URL
+        # URL encode the filename to handle spaces/special chars if any
+        import urllib.parse
+        encoded_filename = urllib.parse.quote(filename)
+        return f"{BASE_URL}/storage/{encoded_filename}"
     except Exception as e:
-        print(f"Supabase Upload Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload file to cloud storage: {str(e)}")
+        print(f"Local Storage Upload Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload file to local storage: {str(e)}")
 
 def delete_file_from_supabase(filename: str):
     """
-    Deletes a file from Supabase Storage.
+    Deletes a file from the local storage directory.
     """
-    supabase = get_supabase_client()
     try:
-        supabase.storage.from_(BUCKET_NAME).remove([filename])
+        full_path = os.path.join(STORAGE_DIR, filename)
+        if os.path.exists(full_path):
+            os.remove(full_path)
     except Exception as e:
-        print(f"Supabase Delete Error: {str(e)}")
-        # We don't raise here because deleting from storage shouldn't break the DB deletion
+        print(f"Local Storage Delete Error: {str(e)}")

@@ -190,36 +190,7 @@ const AddProposal = () => {
     setIsSubmitting(true);
     
     try {
-      // 1. Upload files to Supabase Storage first
-      const photoUrls: string[] = [];
-      let finalPdfUrl: string | null = null;
-      
-      const { supabase } = await import('../../supabaseClient');
-      
-      // We need a unique ID for the folder since we don't have proposal ID yet
-      const tempId = Date.now().toString();
-      
-      if (photosToUpload.length > 0) {
-        showNotification("Uploading photos to Supabase...", "success");
-        for (const file of photosToUpload) {
-          const filePath = `${tempId}/photos/${file.name}`;
-          const { error } = await supabase.storage.from('mtrack').upload(filePath, file);
-          if (error) throw error;
-          const { data } = supabase.storage.from('mtrack').getPublicUrl(filePath);
-          photoUrls.push(data.publicUrl);
-        }
-      }
-      
-      if (pdfToUpload) {
-        showNotification("Uploading PDF to Supabase...", "success");
-        const filePath = `${tempId}/pdf/${pdfToUpload.name}`;
-        const { error } = await supabase.storage.from('mtrack').upload(filePath, pdfToUpload);
-        if (error) throw error;
-        const { data } = supabase.storage.from('mtrack').getPublicUrl(filePath);
-        finalPdfUrl = data.publicUrl;
-      }
-
-      // 2. Create Proposal with URLs included
+      // 1. Create Proposal without URLs first
       const payload = {
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
@@ -227,13 +198,33 @@ const AddProposal = () => {
         dob: formData.dob || null,
         tob: formData.tob || null, 
         created_at: formData.created_at ? new Date(formData.created_at).toISOString() : null,
-        received_date: formData.received_date ? new Date(formData.received_date).toISOString() : null,
-        photo_urls: photoUrls,
-        pdf_url: finalPdfUrl
+        received_date: formData.received_date ? new Date(formData.received_date).toISOString() : null
       };
 
       const response = await api.post('/api/v1/proposals', payload);
+      const newProposalId = response.data.id;
       
+      // 2. Upload files to the backend
+      if (photosToUpload.length > 0) {
+        showNotification("Uploading photos...", "success");
+        for (const file of photosToUpload) {
+          const fileData = new FormData();
+          fileData.append('file', file);
+          await api.post(`/api/v1/proposals/${newProposalId}/upload?file_type=photo`, fileData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+      
+      if (pdfToUpload) {
+        showNotification("Uploading PDF...", "success");
+        const pdfData = new FormData();
+        pdfData.append('file', pdfToUpload);
+        await api.post(`/api/v1/proposals/${newProposalId}/upload?file_type=pdf`, pdfData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+
       // Clear drafts on successful submit
       await clearIndexedDBFiles();
       localStorage.removeItem('proposal_draft');
