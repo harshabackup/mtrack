@@ -2,13 +2,13 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-// Both ADMIN and USER can access vendor routes
+// mtrack is admin-only. Any non-admin gets sent to login.
 export const VendorRoute: React.FC = () => {
   const { user, loading } = useAuth();
 
   if (loading) return <div>Loading...</div>;
 
-  if (!user) {
+  if (!user || user.role !== 'ADMIN') {
     return <Navigate to='/login' replace />;
   }
 
@@ -37,5 +37,5 @@ export const ProtectedRoute: React.FC = () => {
   return user ? <Outlet /> : <Navigate to='/login' replace />;
 };
 
-// Backward compat alias
+// Backward compat alias (proposal site uses InvitedUserRoute)
 export const InvitedUserRoute: React.FC = ProtectedRoute;
