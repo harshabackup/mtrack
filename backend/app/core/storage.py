@@ -3,8 +3,11 @@ from fastapi import HTTPException
 
 # Base URL where the backend is hosted. 
 # We'll use the API_URL env if available, else fallback.
-BASE_URL = os.getenv("API_URL", "http://localhost:8000")
 STORAGE_DIR = "storage"
+
+def get_base_url() -> str:
+    """Read API_URL at request time so env vars set after startup are picked up."""
+    return os.getenv("API_URL", "https://api.harsharoyal.in")
 
 def upload_file_to_supabase(file_bytes: bytes, filename: str, content_type: str) -> str:
     """
@@ -19,11 +22,11 @@ def upload_file_to_supabase(file_bytes: bytes, filename: str, content_type: str)
         with open(full_path, "wb") as f:
             f.write(file_bytes)
             
-        # Return the public URL
-        # URL encode the filename to handle spaces/special chars if any
+        # Return the public URL - read base URL at request time, not module load time
         import urllib.parse
         encoded_filename = urllib.parse.quote(filename)
-        return f"{BASE_URL}/storage/{encoded_filename}"
+        base_url = get_base_url()
+        return f"{base_url}/storage/{encoded_filename}"
     except Exception as e:
         print(f"Local Storage Upload Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upload file to local storage: {str(e)}")
