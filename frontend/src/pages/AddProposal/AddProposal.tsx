@@ -230,8 +230,6 @@ const AddProposal = () => {
       localStorage.removeItem('proposal_draft');
       setIsDirty(false);
       
-      const newProposalId = response.data.id;
-      
       showNotification("Proposal created successfully!", "success");
       setTimeout(() => navigate(`/vendor/proposals/${newProposalId}`), 1000);
     } catch (error) {
