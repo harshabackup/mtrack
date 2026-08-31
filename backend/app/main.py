@@ -22,6 +22,18 @@ app = FastAPI(title="Private Marriage Proposal Management Web App API")
 cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,https://mapptracker.web.app,http://mtrack.harsharoyal.in,https://mtrack.harsharoyal.in,https://proposal.harsharoyal.in,http://proposal.harsharoyal.in")
 cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
 
+# Force append required origins in case the Render dashboard env var overrides the defaults
+required_origins = [
+    "https://proposal.harsharoyal.in",
+    "http://proposal.harsharoyal.in",
+    "https://mtrack.harsharoyal.in",
+    "http://mtrack.harsharoyal.in",
+    "https://mapptracker.web.app"
+]
+for req_origin in required_origins:
+    if req_origin not in cors_origins:
+        cors_origins.append(req_origin)
+
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
