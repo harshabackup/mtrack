@@ -555,7 +555,8 @@ async def send_chat_message(
         response_text = await provider.generate(prompt, system_prompt=system_prompt)
         ai_content = response_text.strip()
     except Exception as e:
-        ai_content = f"I'm sorry, I encountered an error: {str(e)}"
+        from ..ai.fallback_generator import generate_fallback_chat_reply
+        ai_content = generate_fallback_chat_reply(prompt, system_prompt)
 
     # Save AI response
     ai_msg = ChatMessage(session_id=session.id, role="ai", content=ai_content)
