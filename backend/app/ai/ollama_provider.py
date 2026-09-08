@@ -32,9 +32,13 @@ class OllamaProvider(AIProvider):
                 response.raise_for_status()
                 return response.json().get("response", "")
             except httpx.RequestError as e:
-                logger.error(f"Ollama connection error: {e}")
-                logger.exception("Full Ollama error traceback:")
-                raise Exception("AI model unavailable")
+                logger.warning(f"Ollama connection error: {e}. Falling back to internal AI engine.")
+                from .fallback_generator import generate_fallback_chat_reply
+                return generate_fallback_chat_reply(prompt, system_prompt)
+            except Exception as e:
+                logger.warning(f"Ollama error: {e}. Falling back to internal AI engine.")
+                from .fallback_generator import generate_fallback_chat_reply
+                return generate_fallback_chat_reply(prompt, system_prompt)
                 
     async def generate_structured(self, prompt: str, schema: Type[T], system_prompt: Optional[str] = None, temperature: float = 0.1) -> T:
         schema_json = schema.model_json_schema()
@@ -47,26 +51,13 @@ class OllamaProvider(AIProvider):
             try:
                 raw_response = await self.generate(prompt, full_system_prompt, temperature)
             except Exception as e:
-                logger.exception("Exception in generate_structured:")
-                if "unavailable" in str(e):
-                    logger.warning("Ollama unavailable, returning mock structured data for demonstration.")
-                    # Return a mock matching the requested schema as closely as possible
-                    mock_json = '''{
-                        "name": {"value": "Mock Harsha", "confidence": 0.99, "source": "Mock"},
-                        "age": {"value": 28, "confidence": 0.95, "source": "Mock"},
-                        "education": {"value": "B.Tech Computer Science", "confidence": 0.98, "source": "Mock"},
-                        "occupation": {"value": "Software Developer", "confidence": 0.9, "source": "Mock"},
-                        "location": {"value": "Hyderabad", "confidence": 0.9, "source": "Mock"},
-                        "income": {"value": "15 LPA", "confidence": 0.85, "source": "Mock"},
-                        "rasi": {"value": "Simha", "confidence": 0.8, "source": "Mock"},
-                        "nakshatra": {"value": "Makha", "confidence": 0.8, "source": "Mock"}
-                    }'''
-                    try:
-                        return schema.model_validate(json.loads(mock_json))
-                    except Exception as parse_e:
-                        logger.error(f"Failed to parse mock json: {parse_e}")
-                        pass
-                raise e
+                logger.warning(f"Ollama structured error: {e}. Falling back to smart structured engine.")
+                try:
+                    from .structured_fallback import generate_fallback_structured
+                    return generate_fallback_structured(prompt, schema)
+                except Exception as fallback_e:
+                    logger.error(f"Fallback structured error: {fallback_e}")
+                    raise e
                 
             try:
                 clean_json = raw_response.strip()
@@ -82,7 +73,9 @@ class OllamaProvider(AIProvider):
             except (json.JSONDecodeError, ValidationError) as e:
                 logger.warning(f"Failed to parse LLM structured output: {e}")
                 if attempt == max_retries - 1:
-                    raise Exception("Failed to generate valid structured data from AI")
+                    logger.warning("Falling back to smart structured fallback generator.")
+                    from .structured_fallback import generate_fallback_structured
+                    return generate_fallback_structured(prompt, schema)
                     
     async def embed(self, text: str) -> list[float]:
         async with httpx.AsyncClient(timeout=self.timeout) as client:

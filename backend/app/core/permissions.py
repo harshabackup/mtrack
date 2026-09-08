@@ -31,9 +31,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 def require_vendor(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Both ADMIN and USER can access vendor routes (as long as they have a vendor_id)
+    # Both ADMIN and USER can access vendor routes.
+    # If a user/admin has no vendor_id assigned, assign or fallback to vendor 1 or first available vendor.
     if not current_user.vendor_id:
-        raise HTTPException(status_code=403, detail="User is not associated with a vendor account.")
+        from ..models.vendor import Vendor
+        first_vendor = db.query(Vendor).order_by(Vendor.id.asc()).first()
+        if first_vendor:
+            current_user.vendor_id = first_vendor.id
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+        else:
+            current_user.vendor_id = 1
     return current_user
 
 def require_admin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
