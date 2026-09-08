@@ -60,7 +60,7 @@ const VerifyOTP = () => {
       setSuccess('Verified successfully! Redirecting...');
       setTimeout(() => {
         if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
-          navigate('/admin/dashboard');
+          navigate('/vendor/dashboard');
         } else {
           navigate('/invited');
         }

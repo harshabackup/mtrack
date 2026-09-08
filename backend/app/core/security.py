@@ -20,8 +20,8 @@ if not SECRET_KEY:
               "set SECRET_KEY in your environment to secure JWT issuance.")
     SECRET_KEY = _FALLBACK_SECRET_KEY
 
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))  # Defaults to 7 days
+# Default to 10 years (5,256,000 minutes) so login session never expires unless user explicitly logs out
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "5256000"))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))

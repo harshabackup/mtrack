@@ -26,12 +26,11 @@ export const Layout = ({ children }: { children?: ReactNode }) => {
   ];
 
   const adminItems = [
-    { path: '/admin/dashboard', label: 'Admin', icon: <path d="M12 2l10 6.5v7L12 22 2 15.5v-7L12 2z m0 2.25L4.5 9v5.5l7.5 4.75 7.5-4.75V9L12 4.25z" /> },
     { path: '/admin/users', label: 'Users', icon: <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" /> }
   ];
 
   const visibleMenuItems = user?.role === 'ADMIN'
-    ? [...adminItems, ...menuItems]
+    ? [...menuItems, ...adminItems]
     : menuItems;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

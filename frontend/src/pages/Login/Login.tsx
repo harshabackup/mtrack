@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -10,11 +10,22 @@ const Login = () => {
   const [usePassword, setUsePassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const routeAfterLogin = (role: string, email: string, isPasswordLogin: boolean) => {
+  // If user already has a valid session, automatically redirect to their dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+        navigate('/vendor/dashboard', { replace: true });
+      } else {
+        navigate('/invited', { replace: true });
+      }
+    }
+  }, [user, loading, navigate]);
+
+  const routeAfterLogin = (role: string) => {
     const isProposalPortal = window.location.hostname === 'proposal.harsharoyal.in';
     const isAdminPortal = window.location.hostname === 'mtrack.harsharoyal.in';
 
@@ -39,13 +50,13 @@ const Login = () => {
       const response = await api.post('/api/v1/auth/login-password', { email, password });
       const { access_token, user_id, role, vendor_id } = response.data;
 
-      if (!routeAfterLogin(role, email, true)) {
+      if (!routeAfterLogin(role)) {
         setIsSubmitting(false);
         return;
       }
 
       login(access_token, { id: user_id, email, full_name: '', role, vendor_id });
-      navigate(role === 'ADMIN' || role === 'SUPER_ADMIN' ? '/admin/dashboard' : '/invited');
+      navigate(role === 'ADMIN' || role === 'SUPER_ADMIN' ? '/vendor/dashboard' : '/invited');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Incorrect email or password');
       setIsSubmitting(false);

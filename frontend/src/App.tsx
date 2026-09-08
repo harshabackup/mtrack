@@ -22,7 +22,6 @@ import WeddingPlanner from './pages/WeddingPlanner/WeddingPlanner';
 import MyProfile from './pages/Profile/MyProfile';
 
 import AdminUsers from './pages/Admin/Users';
-import AdminDashboard from './pages/Admin/AdminDashboard';
 
 
 // Layout Wrappers
@@ -114,9 +113,9 @@ const router = createBrowserRouter([
       {
         element: <AdminLayout />,
         children: [
-          { path: "dashboard", element: <AdminDashboard /> },
+          { path: "dashboard", element: <Navigate to="/vendor/dashboard" replace /> },
           { path: "users", element: <AdminUsers /> },
-          { path: "", element: <Navigate to="/admin/dashboard" replace /> }
+          { path: "", element: <Navigate to="/vendor/dashboard" replace /> }
         ]
       }
     ]
