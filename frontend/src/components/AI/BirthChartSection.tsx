@@ -86,7 +86,23 @@ const BirthChartSection: React.FC<BirthChartSectionProps> = ({ preloadedData, na
     chart.houses.forEach(h => {
       text += `H${h.number}\t${h.sign}\t${h.degree.toFixed(2)}°\t${h.sign_lord}\t${h.planets_in_house.length > 0 ? h.planets_in_house.join(', ') : 'None'}\t${h.aspected_by.length > 0 ? h.aspected_by.join(', ') : 'None'}\n`;
     });
-    
+
+    if (navamsaData && navamsaData.planets) {
+      text += `\nNavamsa (D9) Chart:\n`;
+      text += `Planet\tSign\tHouse\n`;
+      Object.entries(navamsaData.planets).forEach(([planet, data]: [string, any]) => {
+        text += `${planet}\t${data.sign}\tH${data.house}\n`;
+      });
+    }
+
+    if (dashaData && dashaData.dashas) {
+      text += `\nVimshottari Mahadasha:\n`;
+      text += `Planet\tStart Date\tEnd Date\n`;
+      dashaData.dashas.forEach((dasha: any) => {
+        text += `${dasha.planet}\t${dasha.start}\t${dasha.end}\n`;
+      });
+    }
+
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
