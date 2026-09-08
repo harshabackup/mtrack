@@ -185,8 +185,27 @@ async def chat_with_proposal_ai(
         from ..ai.ollama_provider import OllamaProvider
         provider = OllamaProvider()
         
-    # Build context
-    context = f"Proposal Profile Data:\nName: {proposal.name}, Age: {proposal.age}, City: {proposal.current_city}, Education: {proposal.education}, Company: {proposal.company}, Salary: {proposal.salary_ctc}. Rasi: {proposal.rasi}, Nakshatra: {proposal.nakshatra}, Dosham: {proposal.dosham}. Father: {proposal.father_name}, Siblings: {proposal.siblings_details}.\n\n"
+    # Build context with all real DB fields
+    context = (
+        f"Proposal Profile Data:\n"
+        f"Name: {proposal.name or 'Not specified'}\n"
+        f"Age: {proposal.age or 'Not specified'}\n"
+        f"City: {proposal.current_city or 'Not specified'}\n"
+        f"Education: {proposal.education or 'Not specified'}\n"
+        f"Company: {proposal.company or 'Not specified'}\n"
+        f"Job Title: {proposal.job_title or 'Not specified'}\n"
+        f"Salary: {proposal.salary_ctc or 'Not specified'}\n"
+        f"Rasi: {proposal.rasi or 'Not specified'}\n"
+        f"Nakshatra: {proposal.nakshatra or 'Not specified'}\n"
+        f"Dosham: {proposal.dosham or 'Not specified'}\n"
+        f"Gotram: {proposal.gotram or 'Not specified'}\n"
+        f"Caste: {proposal.caste or 'Not specified'}\n"
+        f"Father: {proposal.father_name or 'Not specified'}\n"
+        f"Father Occupation: {proposal.father_occupation or 'Not specified'}\n"
+        f"Mother: {proposal.mother_name or 'Not specified'}\n"
+        f"Mother Occupation: {proposal.mother_occupation or 'Not specified'}\n"
+        f"Siblings: {proposal.siblings_details or 'Not specified'}\n\n"
+    )
     
     system_prompt = "You are a helpful matchmaking assistant. Answer the user's questions about the proposal profile provided in the context. Keep your answers concise, supportive, and strictly based on the provided profile details."
     
@@ -378,11 +397,36 @@ def proposals_list_for_chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor),
 ):
-    """Lightweight list of proposals (id + name) for the chat proposal selector."""
-    proposals = db.query(Proposal.id, Proposal.name).filter(
-        Proposal.vendor_id == current_user.vendor_id
+    """Detailed active proposals for the chat proposal selector & intelligent fallback."""
+    from sqlalchemy import or_
+    proposals = db.query(Proposal).filter(
+        Proposal.vendor_id == current_user.vendor_id,
+        or_(Proposal.is_my_profile == False, Proposal.is_my_profile.is_(None)),
+        Proposal.status != "REJECTED"
     ).order_by(Proposal.name).all()
-    return [{"id": p.id, "name": p.name} for p in proposals]
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "age": p.age,
+            "city": p.current_city,
+            "education": p.education,
+            "company": p.company,
+            "job_title": p.job_title,
+            "salary": p.salary_ctc,
+            "father_name": p.father_name,
+            "father_occupation": p.father_occupation,
+            "mother_name": p.mother_name,
+            "mother_occupation": p.mother_occupation,
+            "siblings_details": p.siblings_details,
+            "gotram": p.gotram,
+            "caste": p.caste,
+            "rasi": p.rasi,
+            "nakshatra": p.nakshatra,
+            "dosham": p.dosham,
+        }
+        for p in proposals
+    ]
 
 
 @router.get("/chat/sessions")
@@ -519,11 +563,23 @@ async def send_chat_message(
         if proposal:
             context = (
                 f"Proposal Profile Data:\n"
-                f"Name: {proposal.name}, Age: {proposal.age}, "
-                f"City: {proposal.current_city}, Education: {proposal.education}, "
-                f"Company: {proposal.company}, Salary: {proposal.salary_ctc}. "
-                f"Rasi: {proposal.rasi}, Nakshatra: {proposal.nakshatra}, Dosham: {proposal.dosham}. "
-                f"Father: {proposal.father_name}, Siblings: {proposal.siblings_details}.\n\n"
+                f"Name: {proposal.name or 'Not specified'}\n"
+                f"Age: {proposal.age or 'Not specified'}\n"
+                f"City: {proposal.current_city or 'Not specified'}\n"
+                f"Education: {proposal.education or 'Not specified'}\n"
+                f"Company: {proposal.company or 'Not specified'}\n"
+                f"Job Title: {proposal.job_title or 'Not specified'}\n"
+                f"Salary: {proposal.salary_ctc or 'Not specified'}\n"
+                f"Rasi: {proposal.rasi or 'Not specified'}\n"
+                f"Nakshatra: {proposal.nakshatra or 'Not specified'}\n"
+                f"Dosham: {proposal.dosham or 'Not specified'}\n"
+                f"Gotram: {proposal.gotram or 'Not specified'}\n"
+                f"Caste: {proposal.caste or 'Not specified'}\n"
+                f"Father: {proposal.father_name or 'Not specified'}\n"
+                f"Father Occupation: {proposal.father_occupation or 'Not specified'}\n"
+                f"Mother: {proposal.mother_name or 'Not specified'}\n"
+                f"Mother Occupation: {proposal.mother_occupation or 'Not specified'}\n"
+                f"Siblings: {proposal.siblings_details or 'Not specified'}\n\n"
             )
 
     # Load recent history from DB

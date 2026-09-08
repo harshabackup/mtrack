@@ -21,10 +21,24 @@ def generate_fallback_chat_reply(prompt: str, system_prompt: Optional[str] = Non
     
     # Extract profile data if present
     profile: Dict[str, str] = {}
-    for key in ["Name", "Age", "City", "Education", "Company", "Salary", "Rasi", "Nakshatra", "Dosham", "Father", "Siblings"]:
-        m = re.search(rf"{key}:\s*([^,\.\n]+)", prompt, re.IGNORECASE)
+    field_keys = [
+        "Name", "Age", "City", "Education", "Company", "Job Title", "Salary",
+        "Rasi", "Nakshatra", "Dosham", "Gotram", "Caste",
+        "Father Occupation", "Mother Occupation", "Father", "Mother", "Siblings"
+    ]
+    for key in field_keys:
+        m = re.search(rf"^{key}:\s*(.+)$", prompt, re.IGNORECASE | re.MULTILINE)
         if m:
-            profile[key.lower()] = m.group(1).strip()
+            val = m.group(1).strip()
+            if val and val.lower() != "not specified":
+                profile[key.lower()] = val
+
+    # Helper function to get clean display value or fallback
+    def get_val(key: str, default: str = "Not available") -> str:
+        v = profile.get(key.lower(), "").strip()
+        if not v or v.lower() in ["not specified", "none", "n/a", "null"]:
+            return default
+        return v
 
     # Extract user's latest query
     if "user:" in prompt_lower:
@@ -45,16 +59,17 @@ def generate_fallback_chat_reply(prompt: str, system_prompt: Optional[str] = Non
     # 1. GREETINGS (strict word match)
     if re.search(r"^(hi|hello|hey|namaste|good\s*(morning|afternoon|evening))\b", query_lower):
         if profile.get("name"):
+            age_str = f", {get_val('age')} yrs" if get_val('age') != "Not available" else ""
+            city_str = f" from {get_val('city')}" if get_val('city') != "Not available" else ""
             return (
-                f"Hello! I am your AI Matchmaking Assistant reviewing **{name}** "
-                f"({profile.get('age', 'N/A')} yrs, {profile.get('city', 'N/A')}).\n\n"
-                f"What would you like to know? You can ask me about their **education**, **career & salary**, "
-                f"**horoscope & doshams**, **family background**, or **suggested questions to ask them**!"
+                f"Hello! I am your AI Matchmaking Assistant reviewing **{name}**{age_str}{city_str}.\n\n"
+                f"You can ask me about their **family details** (parents & siblings), **education & career**, "
+                f"**horoscope & doshams**, or **questions for family meetings**."
             )
         return (
             "Hello! I am your MAPP AI Matchmaking Assistant. "
             "I can assist you with evaluating prospective brides and grooms, analyzing horoscope compatibility, "
-            "calculating 36 Guna / Porutham, summarizing career profiles, and framing questions for family meetings.\n\n"
+            "summarizing career and family profiles, and framing questions for family meetings.\n\n"
             "Select a proposal from the dropdown above or ask me anything!"
         )
 
@@ -62,113 +77,130 @@ def generate_fallback_chat_reply(prompt: str, system_prompt: Optional[str] = Non
     if matches_any("education", "educational", "qualification", "qualifications", "degree", "study", "studied", 
                    "college", "university", "school", "graduate", "post-graduate", "btech", "mtech", "b.e", "m.s", 
                    "mba", "phd", "academic", "academics"):
-        edu = profile.get("education", "Higher Degree / Professional Qualification")
+        edu = get_val("education")
         return (
             f"### Education & Academic Profile: {name}\n\n"
             f"- **Highest Qualification:** {edu}\n"
-            f"- **Field:** Professional / Technical Education\n"
-            f"- **Academic Standing:** Well-credentialed with verified academic background.\n\n"
-            f"**Evaluation:** {name} possesses a solid educational foundation that complements their current profession. "
-            f"During family discussions, you may ask about any plans for higher studies or international certifications."
+            f"- **Field:** {edu if edu != 'Not available' else 'Not specified in profile'}\n\n"
+            f"{'Candidate holds verified educational credentials recorded in biodata.' if edu != 'Not available' else 'Educational credentials are not documented in the biodata.'}"
         )
 
     # 3. SALARY, CTC, COMPENSATION & FINANCES (covers 1,000+ variants)
     if matches_any("salary", "ctc", "package", "income", "earn", "earning", "earnings", "lpa", "remuneration", 
                    "financial", "finance", "wealth", "per annum", "monthly"):
-        sal = profile.get("salary", "Confidential / Industry Standard")
-        comp = profile.get("company", "Reputable Enterprise")
+        sal = get_val("salary")
+        comp = get_val("company")
         return (
             f"### Financial & Compensation Overview: {name}\n\n"
-            f"- **Annual Compensation (CTC):** {sal}\n"
-            f"- **Current Employer:** {comp}\n"
-            f"- **Financial Health:** Financially independent with steady career trajectory.\n\n"
-            f"**Guidance:** Financial expectations and lifestyle compatibility can be gracefully confirmed during the second or third family interaction."
+            f"- **Annual Compensation (CTC):** {sal + (' LPA' if sal.replace('.', '').isdigit() else '') if sal != 'Not available' else 'Not available'}\n"
+            f"- **Current Employer:** {comp}\n\n"
+            f"Financial details can be confirmed during family interactions."
         )
 
     # 4. CAREER, JOB, DESIGNATION & WORK MODEL (covers 1,500+ variants)
     if matches_any("job", "career", "work", "profession", "occupation", "company", "employer", "role", 
                    "designation", "position", "office", "industry", "relocate", "relocation", "transfer", 
                    "wfh", "remote", "hybrid", "onsite", "abroad", "visa"):
-        comp = profile.get("company", "Leading Organization")
-        city = profile.get("city", "Major Metropolitan City")
+        job = get_val("job title")
+        comp = get_val("company")
+        city = get_val("city")
         return (
             f"### Career & Employment Summary: {name}\n\n"
+            f"- **Designation / Role:** {job}\n"
             f"- **Organization:** {comp}\n"
-            f"- **Current Work Location:** {city}\n"
-            f"- **Work Profile:** Professional working with stability and growth potential.\n\n"
+            f"- **Work Location:** {city}\n\n"
             f"**Key Discussion Topics:**\n"
-            f"1. Long-term career goals and potential for relocation or foreign assignments.\n"
-            f"2. Preference regarding spouse's career aspirations.\n"
-            f"3. Daily commute and work-life balance expectations."
+            f"1. Work arrangements (onsite, remote, or hybrid) and relocation flexibility.\n"
+            f"2. Long-term career goals and partner career expectations."
         )
 
     # 5. ASTROLOGY, HOROSCOPE, RASI, NAKSHATRA & GUNA MILAN (covers 2,000+ variants)
     if matches_any("astrology", "astrological", "horoscope", "kundali", "kundli", "jathakam", "rasi", "rashi", 
                    "nakshatra", "guna", "gunas", "porutham", "koota", "kuta", "ashtakoota", "matching", 
                    "graha", "planet", "lagna", "ascendant", "moon sign", "birth star"):
-        rasi = profile.get("rasi", "Favorable Rasi")
-        nak = profile.get("nakshatra", "Auspicious Nakshatra")
-        dosham = profile.get("dosham", "None reported")
+        rasi = get_val("rasi")
+        nak = get_val("nakshatra")
+        dosham = get_val("dosham", default="None reported")
+        gotram = get_val("gotram")
+        caste = get_val("caste")
         return (
-            f"### Astrological & Horoscope Analysis: {name}\n\n"
+            f"### Astrological & Horoscope Details: {name}\n\n"
             f"- **Rasi (Moon Sign):** {rasi}\n"
             f"- **Nakshatra (Birth Star):** {nak}\n"
-            f"- **Dosham Status:** {dosham}\n\n"
-            f"**Vedic Matchmaking Insights:**\n"
-            f"- **Temperament:** Native of {nak} typically exhibits dependability, dignity, and strong family devotion.\n"
-            f"- **Ashtakoota Factors:** Favorable for comprehensive 36 Guna evaluation across Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, and Nadi.\n"
-            f"- **Compatibility Benchmark:** Traditional matchmaking recommends 18+ points out of 36 for lasting marital harmony."
+            f"- **Dosham:** {dosham}\n"
+            f"- **Gotram:** {gotram}\n"
+            f"- **Caste / Community:** {caste}\n\n"
+            f"**Horoscope Matching:** Use exact birth date, time, and coordinates to verify 36 Guna Milan / 10 Poruthams with your family astrologer."
         )
 
     # 6. DOSHAMS & REMEDIES (covers 1,000+ variants)
     if matches_any("dosha", "dosham", "doshams", "manglik", "mangal", "kuja", "chevvai", "angarak", "nadi", 
                    "bhakoot", "rahu", "ketu", "sarpa", "kalsarpa", "pitra", "remedy", "remedies", "pariharam"):
-        dosham = profile.get("dosham", "None")
-        has_dosham = dosham.lower() not in ["none", "no", "not specified", "n/a", ""]
+        dosham = get_val("dosham", default="None recorded")
+        has_dosham = dosham.lower() not in ["none", "none recorded", "no", "not specified", "not available", "n/a", ""]
         return (
-            f"### Dosha Assessment & Remedial Guidance: {name}\n\n"
-            f"- **Status:** {dosham if has_dosham else 'No adverse doshas recorded'}\n"
-            f"- **Manglik / Kuja Check:** {'Manglik factor is noted — matching with a compatible chart or observing standard remedies is advisable.' if has_dosham else 'Clear of critical Manglik afflictions.'}\n"
-            f"- **Nadi & Bhakoot Harmony:** Recommended to match with partner's birth star to verify Nadi and Bhakoot agreement.\n"
-            f"- **Remedies:** Traditional Vedic remedies include benefic prayers (Hanuman Chalisa / Vishnu Sahasranamam) or consulting the family astrologer with exact birth coordinates."
+            f"### Dosha Assessment for {name}\n\n"
+            f"- **Dosham Status:** {dosham}\n"
+            f"- **Analysis:** {'Specific dosham noted in biodata. Consult an astrologer for compatibility and standard remedies.' if has_dosham else 'No adverse doshas (such as Kuja / Manglik) are reported in the biodata.'}"
         )
 
-    # 7. FAMILY BACKGROUND & PARENTS (covers 1,000+ variants)
+    # 7. FAMILY BACKGROUND, PARENTS & SIBLINGS (Strictly Real Data)
     if matches_any("family", "father", "mother", "parent", "parents", "sibling", "siblings", 
                    "brother", "sister", "background", "hometown", "native", "caste", "community", "subcaste", "gotra"):
-        father = profile.get("father", "Reputable family background")
-        siblings = profile.get("siblings", "Family details available upon request")
-        city = profile.get("city", "Documented")
+        father_name = get_val("father")
+        father_occ = get_val("father occupation")
+        mother_name = get_val("mother")
+        mother_occ = get_val("mother occupation")
+        siblings = get_val("siblings")
+        gotram = get_val("gotram")
+        caste = get_val("caste")
+        city = get_val("city")
+
+        # Format father details
+        if father_name != "Not available" and father_occ != "Not available":
+            father_str = f"{father_name} ({father_occ})"
+        elif father_name != "Not available":
+            father_str = father_name
+        else:
+            father_str = "Not available"
+
+        # Format mother details
+        if mother_name != "Not available" and mother_occ != "Not available":
+            mother_str = f"{mother_name} ({mother_occ})"
+        elif mother_name != "Not available":
+            mother_str = mother_name
+        else:
+            mother_str = "Not available"
+
         return (
-            f"### Family & Cultural Heritage: {name}\n\n"
-            f"- **Father's Details:** {father}\n"
-            f"- **Siblings Details:** {siblings}\n"
-            f"- **Family Location / Native Place:** {city}\n"
-            f"- **Family Values:** Cultured, respectable family upholding traditional ethics with a progressive outlook.\n\n"
-            f"**Suggested Interaction:** A cordial introductory phone call between family elders is the best next step to exchange mutual aspirations."
+            f"### Family Details: {name}\n\n"
+            f"- **Father:** {father_str}\n"
+            f"- **Mother:** {mother_str}\n"
+            f"- **Siblings:** {siblings}\n"
+            f"- **Gotram:** {gotram}\n"
+            f"- **Caste / Community:** {caste}\n"
+            f"- **Family Location / Native Place:** {city}\n\n"
+            f"*(Note: Details are retrieved directly from the candidate's profile in the database.)*"
         )
 
     # 8. HABITS, LIFESTYLE & PERSONAL PREFERENCES (covers 800+ variants)
     if matches_any("diet", "food", "veg", "vegetarian", "non-veg", "eggetarian", "drink", "drinking", 
                    "alcohol", "smoke", "smoking", "habit", "habits", "lifestyle", "fitness", "hobbies"):
         return (
-            f"### Lifestyle, Habits & Personal Preferences: {name}\n\n"
-            f"- **Dietary Habits:** Respectful of family culinary traditions.\n"
-            f"- **Social Habits:** Healthy lifestyle centered around professional growth and family.\n"
-            f"- **Interests:** Enjoys reading, music, travel, and quality family gatherings.\n\n"
-            f"**Matchmaking Tip:** Openly discussing dietary choices and weekend routines early on ensures easy mutual alignment."
+            f"### Lifestyle & Personal Preferences: {name}\n\n"
+            f"- **Lifestyle Details:** Not explicitly specified in biodata.\n"
+            f"- **Recommendation:** Discuss dietary preferences, lifestyle habits, and weekend interests during family conversations or direct calls."
         )
 
     # 9. AGE, HEIGHT & PHYSICAL ATTRIBUTES (covers 500+ variants)
     if matches_any("age", "old", "dob", "birth", "height", "tall", "weight", "physical", "appearance", "looks", "photo"):
-        age = profile.get("age", "N/A")
-        city = profile.get("city", "N/A")
+        age = get_val("age")
+        city = get_val("city")
         return (
             f"### Profile Demographics: {name}\n\n"
-            f"- **Age:** {age} years\n"
-            f"- **Location:** {city}\n"
-            f"- **Presentation:** Professional demeanor with courteous interpersonal conduct.\n\n"
-            f"Photos and official bio-data documents are viewable in the Documents section."
+            f"- **Age:** {age + ' years' if age != 'Not available' else 'Not available'}\n"
+            f"- **Location:** {city}\n\n"
+            f"Full bio-data documents and photos are viewable in the Documents section."
         )
 
     # 10. FIRST MEETING & QUESTIONS TO ASK (covers 1,000+ variants)
@@ -176,60 +208,59 @@ def generate_fallback_chat_reply(prompt: str, system_prompt: Optional[str] = Non
                    "conversation", "icebreaker", "what to", "first call"):
         return (
             f"### Suggested Discussion Guide when Meeting {name}\n\n"
-            f"Here are thoughtful questions designed for comfortable family and candidate meetings:\n\n"
-            f"1. **Life Vision:** *\"What are your long-term career aspirations and ideal work-life balance over the next 5 years?\"*\n"
-            f"2. **Family Traditions:** *\"How does your family celebrate festivals and spend weekends?\"*\n"
-            f"3. **Living Arrangements:** *\"What are your thoughts regarding the city of residence and future home setup?\"*\n"
-            f"4. **Core Values:** *\"What character traits do you value most in a marriage partner?\"*\n"
-            f"5. **Mutual Communication:** *\"When differences arise, how do you prefer discussing and resolving them?\"*"
+            f"Here are practical questions to ask during family or one-on-one meetings:\n\n"
+            f"1. **Career & Relocation:** *\"What are your current work arrangement and plans for the next 2-3 years?\"*\n"
+            f"2. **Family Values:** *\"How involved is the extended family in major decisions?\"*\n"
+            f"3. **Living Arrangements:** *\"What are your preferences regarding place of residence after marriage?\"*\n"
+            f"4. **Expectations in a Partner:** *\"What qualities do you prioritize most in a life partner?\"*"
         )
 
     # 11. DUE DILIGENCE, VERIFICATION & RED FLAGS (covers 500+ variants)
     if matches_any("red flag", "red flags", "concern", "concerns", "doubt", "verify", "verification", 
                    "check", "due diligence", "background check", "fake", "risk"):
         missing = []
-        for k in ["salary", "dosham", "siblings", "father"]:
-            if not profile.get(k) or profile.get(k).lower() in ["not specified", "none", "n/a"]:
+        for k in ["education", "company", "salary", "father", "mother", "siblings", "gotram", "rasi", "nakshatra"]:
+            if get_val(k) == "Not available":
                 missing.append(k.capitalize())
-        missing_str = ", ".join(missing) if missing else "None. Profile documentation is complete."
+        missing_str = ", ".join(missing) if missing else "None. All major profile fields are filled."
         return (
-            f"### Due Diligence & Profile Verification for {name}\n\n"
-            f"- **Profile Completeness:** Over 90% of core matrimonial fields are documented.\n"
-            f"- **Items to Clarify:** {missing_str}\n"
-            f"- **Recommended Verification Steps:**\n"
-            f"  1. Request educational and employment certificates during formal engagement.\n"
-            f"  2. Confirm birth date and time accuracy via official birth records or family astrologer.\n"
-            f"  3. Conduct informal reference checks through common acquaintances or community networks."
+            f"### Profile Verification & Completeness for {name}\n\n"
+            f"- **Fields Not Available in Biodata:** {missing_str}\n"
+            f"- **Recommended Next Steps:** Confirm any missing fields directly with the candidate's family during introductory discussions."
         )
 
     # 12. GENERAL SUMMARY / WHO IS (covers 1,000+ variants)
     if matches_any("tell me about", "who is", "summary", "overview", "biodata", "profile", "details", "info", "explain"):
         if profile.get("name"):
+            father = get_val("father")
+            mother = get_val("mother")
+            parents_str = f"Father: {father}, Mother: {mother}" if (father != 'Not available' or mother != 'Not available') else "Not available"
             return (
-                f"### Comprehensive Profile Summary: {name}\n\n"
-                f"- **Personal:** {profile.get('age', 'N/A')} yrs, based in {profile.get('city', 'N/A')}\n"
-                f"- **Education:** {profile.get('education', 'Higher Degree')}\n"
-                f"- **Career:** Employed at {profile.get('company', 'Leading Enterprise')} ({profile.get('salary', 'Industry Standard')})\n"
-                f"- **Astrology:** {profile.get('rasi', 'N/A')} Rasi, {profile.get('nakshatra', 'N/A')} Nakshatra\n"
-                f"- **Family:** Father ({profile.get('father', 'Documented')}), Siblings ({profile.get('siblings', 'Documented')})\n\n"
-                f"**Overall Verdict:** Highly balanced profile with strong career prospects and respectable family values. "
-                f"Would you like guidance on next steps or horoscopic matching?"
+                f"### Profile Summary: {name}\n\n"
+                f"- **Personal:** Age: {get_val('age')}, Location: {get_val('city')}\n"
+                f"- **Education:** {get_val('education')}\n"
+                f"- **Career:** {get_val('job title')} at {get_val('company')} (CTC: {get_val('salary')})\n"
+                f"- **Astrology:** Rasi: {get_val('rasi')}, Nakshatra: {get_val('nakshatra')}, Dosham: {get_val('dosham', 'None recorded')}\n"
+                f"- **Family:** {parents_str} | Siblings: {get_val('siblings')}\n\n"
+                f"Ask me if you would like more details about their family, career, horoscope, or meeting recommendations!"
             )
 
     # 13. CONTEXTUAL DEFAULT FOR ANY USER QUERY
     if profile.get("name"):
         return (
-            f"Regarding your question about **{name}** (_{user_query}_):\n\n"
-            f"- **Profile Context:** {name} is {profile.get('age', 'N/A')} years old, working at {profile.get('company', 'their organization')} in {profile.get('city', 'their city')}.\n"
-            f"- **Education & Background:** {profile.get('education', 'Qualified professional')} with {profile.get('rasi', 'N/A')} Moon sign.\n\n"
-            f"The candidate's profile is well-documented and positive. Feel free to ask about **career**, **astrology**, **family details**, or **meeting tips**!"
+            f"Regarding your question about **{name}**:\n\n"
+            f"- **Current Role:** {get_val('job title')} at {get_val('company')}\n"
+            f"- **Education:** {get_val('education')}\n"
+            f"- **Location:** {get_val('city')}\n"
+            f"- **Family:** Father: {get_val('father')}, Mother: {get_val('mother')}, Siblings: {get_val('siblings')}\n\n"
+            f"You can ask specific questions about their **family details**, **education**, **career & salary**, or **astrology**."
         )
 
     return (
         f"Thank you for asking! As your AI Matchmaking Assistant, I can answer inquiries across:\n\n"
         f"1. **Candidate Details**: Education, career, salary, company, and location.\n"
-        f"2. **Astrology & Kundali**: Rasi, Nakshatra, Guna Milan (36 points), and Dosham remediation.\n"
-        f"3. **Family & Lineage**: Heritage, parental background, and siblings.\n"
-        f"4. **Meeting Guidance**: Tailored questions to ask during introductory meetings.\n\n"
-        f"Please select a proposal from the dropdown above to view specific insights, or ask your query!"
+        f"2. **Family Details**: Parents' names & occupations, siblings, and community/gotram.\n"
+        f"3. **Astrology & Kundali**: Rasi, Nakshatra, Dosham status.\n"
+        f"4. **Meeting Guidance**: Questions to ask during introductory meetings.\n\n"
+        f"Please select a proposal from the dropdown above to view real candidate details!"
     )

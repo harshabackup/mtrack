@@ -37,9 +37,10 @@ def get_proposals(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_vendor)
 ):
+    from sqlalchemy import or_
     query = db.query(Proposal).filter(
         Proposal.vendor_id == current_user.vendor_id,
-        Proposal.is_my_profile == False
+        or_(Proposal.is_my_profile == False, Proposal.is_my_profile.is_(None))
     )
     if name:
         query = query.filter(Proposal.name.ilike(f"%{name}%"))

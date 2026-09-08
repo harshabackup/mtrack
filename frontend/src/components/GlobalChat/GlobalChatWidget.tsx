@@ -21,6 +21,22 @@ interface SessionInfo {
 interface ProposalOption {
   id: number;
   name: string;
+  age?: number | null;
+  city?: string | null;
+  education?: string | null;
+  company?: string | null;
+  job_title?: string | null;
+  salary?: string | null;
+  father_name?: string | null;
+  father_occupation?: string | null;
+  mother_name?: string | null;
+  mother_occupation?: string | null;
+  siblings_details?: string | null;
+  gotram?: string | null;
+  caste?: string | null;
+  rasi?: string | null;
+  nakshatra?: string | null;
+  dosham?: string | null;
 }
 
 const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
@@ -45,21 +61,23 @@ const GlobalChatWidget: React.FC = () => {
   }, [messages, loading]);
 
   // Load proposals for the selector
-  useEffect(() => {
-    const loadProposals = async () => {
+  const loadProposals = useCallback(async () => {
+    try {
+      const res = await api.get('/api/v1/ai/proposals-list');
+      setProposals(res.data);
+    } catch {
+      // Fallback: load from proposals API (only active proposals)
       try {
-        const res = await api.get('/api/v1/ai/proposals-list');
-        setProposals(res.data);
-      } catch {
-        // Fallback: load from proposals API
-        try {
-          const res = await api.get('/api/v1/proposals');
-          setProposals((res.data.proposals || res.data || []).map((p: any) => ({ id: p.id, name: p.name })));
-        } catch { /* ignore */ }
-      }
-    };
-    loadProposals();
+        const res = await api.get('/api/v1/proposals');
+        const list = Array.isArray(res.data) ? res.data : (res.data.proposals || []);
+        setProposals(list.filter((p: any) => p.status !== 'REJECTED').map((p: any) => ({ id: p.id, name: p.name })));
+      } catch { /* ignore */ }
+    }
   }, []);
+
+  useEffect(() => {
+    loadProposals();
+  }, [loadProposals]);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
@@ -90,6 +108,7 @@ const GlobalChatWidget: React.FC = () => {
   // Start or resume a session when chat is opened
   const openChat = async () => {
     setIsOpen(true);
+    loadProposals();
     if (!sessionId) {
       try {
         const sessRes = await api.get('/api/v1/ai/chat/sessions');
@@ -185,16 +204,56 @@ const GlobalChatWidget: React.FC = () => {
         } catch {
           // Client-side fallback if backend endpoint fails or is restarting
           const q = userMsg.toLowerCase();
-          const pName = proposals.find(p => p.id === selectedProposal)?.name || "the candidate";
-          let reply = `Based on the profile of **${pName}**: All details look positive and complete. You can ask about their career, family, or horoscope!`;
-          if (q.includes("edu") || q.includes("degree") || q.includes("study") || q.includes("college") || q.includes("qualification")) {
-            reply = `### Education & Career for ${pName}\n\n- **Education:** Higher Degree / Engineering / Professional Graduate\n- **Status:** Professionally employed with strong career prospects.\n\nWould you like guidance on discussion points regarding career relocation or family expectations?`;
+          const p = proposals.find(item => item.id === selectedProposal);
+          const pName = p?.name || "the candidate";
+          
+          const getDisplay = (val?: string | null) => {
+            if (!val || val.trim() === '' || val.toLowerCase() === 'not specified' || val.toLowerCase() === 'null') {
+              return 'Not available';
+            }
+            return val.trim();
+          };
+
+          let reply = `### Profile Overview: ${pName}\n\n` +
+            `- **Location:** ${getDisplay(p?.city)}\n` +
+            `- **Education:** ${getDisplay(p?.education)}\n` +
+            `- **Career:** ${getDisplay(p?.job_title)} at ${getDisplay(p?.company)}\n` +
+            `- **Family:** Father: ${getDisplay(p?.father_name)}, Mother: ${getDisplay(p?.mother_name)}, Siblings: ${getDisplay(p?.siblings_details)}\n\n` +
+            `Ask me anything specific about their **family details**, **education**, **career & salary**, or **astrology**!`;
+
+          if (q.includes("family") || q.includes("father") || q.includes("mother") || q.includes("parent") || q.includes("sibling") || q.includes("brother") || q.includes("sister") || q.includes("gotram") || q.includes("caste")) {
+            const fName = getDisplay(p?.father_name);
+            const fOcc = getDisplay(p?.father_occupation);
+            const fatherStr = fName !== 'Not available' && fOcc !== 'Not available' ? `${fName} (${fOcc})` : fName;
+            
+            const mName = getDisplay(p?.mother_name);
+            const mOcc = getDisplay(p?.mother_occupation);
+            const motherStr = mName !== 'Not available' && mOcc !== 'Not available' ? `${mName} (${mOcc})` : mName;
+
+            reply = `### Family Details: ${pName}\n\n` +
+              `- **Father:** ${fatherStr}\n` +
+              `- **Mother:** ${motherStr}\n` +
+              `- **Siblings:** ${getDisplay(p?.siblings_details)}\n` +
+              `- **Gotram:** ${getDisplay(p?.gotram)}\n` +
+              `- **Caste / Community:** ${getDisplay(p?.caste)}\n` +
+              `- **Family Location:** ${getDisplay(p?.city)}\n\n` +
+              `*(Details retrieved directly from candidate database record.)*`;
+          } else if (q.includes("edu") || q.includes("degree") || q.includes("study") || q.includes("college") || q.includes("qualification")) {
+            reply = `### Education Profile: ${pName}\n\n` +
+              `- **Highest Qualification:** ${getDisplay(p?.education)}\n` +
+              `- **Current Organization:** ${getDisplay(p?.company)}`;
           } else if (q.includes("job") || q.includes("work") || q.includes("company") || q.includes("salary") || q.includes("ctc") || q.includes("income")) {
-            reply = `### Professional Background for ${pName}\n\n- **Employment:** Actively working in a reputable organization with stable career growth.\n- **Compensation:** Meets standard industry expectations.\n- **Work Flexibility:** Open for discussion during initial family interactions.`;
+            reply = `### Career & Financial Summary: ${pName}\n\n` +
+              `- **Designation:** ${getDisplay(p?.job_title)}\n` +
+              `- **Company:** ${getDisplay(p?.company)}\n` +
+              `- **Annual CTC:** ${getDisplay(p?.salary) !== 'Not available' ? getDisplay(p?.salary) + ' LPA' : 'Not available'}\n` +
+              `- **Location:** ${getDisplay(p?.city)}`;
           } else if (q.includes("astro") || q.includes("horoscope") || q.includes("rasi") || q.includes("nakshatra") || q.includes("dosha")) {
-            reply = `### Astrological Insights for ${pName}\n\n- **Planetary Harmony:** The chart indicates strong stability, leadership qualities, and family devotion.\n- **Dosham Check:** No critical or adverse doshas recorded.\n- **Koota Matching:** Recommended for 36 Guna / Porutham compatibility review.`;
-          } else if (q.includes("family") || q.includes("father") || q.includes("parent") || q.includes("sibling")) {
-            reply = `### Family Background for ${pName}\n\n- **Household:** Traditional family with modern outlook and strong cultural values.\n- **Siblings & Parents:** Well-settled family background.\n- **Suggestions:** A warm introductory call between elders is recommended to take things forward.`;
+            reply = `### Astrological Profile: ${pName}\n\n` +
+              `- **Rasi (Moon Sign):** ${getDisplay(p?.rasi)}\n` +
+              `- **Nakshatra (Birth Star):** ${getDisplay(p?.nakshatra)}\n` +
+              `- **Dosham:** ${getDisplay(p?.dosham) !== 'Not available' ? getDisplay(p?.dosham) : 'None recorded'}\n` +
+              `- **Gotram:** ${getDisplay(p?.gotram)}`;
           }
           setMessages(prev => [...prev, { role: 'ai', content: reply }]);
         }

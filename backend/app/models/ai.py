@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from ..core.database import Base
 from pgvector.sqlalchemy import Vector
 import enum
+from .proposal import Proposal
 
 class VerificationStatus(str, enum.Enum):
     SELF_REPORTED = "SELF_REPORTED"
@@ -82,7 +83,7 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    vendor_id = Column(String, nullable=False, index=True)
+    vendor_id = Column(Integer, nullable=False, index=True)
     proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Integer, default=1)  # 1 = active, 0 = ended
     started_at = Column(DateTime(timezone=True), server_default=func.now())
