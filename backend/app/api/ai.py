@@ -153,7 +153,8 @@ async def ai_compare_proposals(
     try:
         explanation = await provider.generate(prompt)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI provider failed to explain comparison: {e}")
+        from ..ai.fallback_generator import generate_fallback_chat_reply
+        explanation = generate_fallback_chat_reply(prompt)
     
     return {
         "ai_explanation": explanation
@@ -201,7 +202,8 @@ async def chat_with_proposal_ai(
         response_text = await provider.generate(prompt, system_prompt=system_prompt)
         return {"response": response_text.strip()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI provider failed to respond: {e}")
+        from ..ai.fallback_generator import generate_fallback_chat_reply
+        return {"response": generate_fallback_chat_reply(prompt, system_prompt)}
 
 
 @router.post("/chat/general")
