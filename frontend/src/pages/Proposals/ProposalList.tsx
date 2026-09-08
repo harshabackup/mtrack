@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
+import { resolveStorageUrl } from '../../utils/storageUrl';
 
 interface Proposal {
   id: number;
@@ -262,7 +263,7 @@ const ProposalList = () => {
                   <td style={{ padding: '12px 20px' }}>
                     <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: p.photos && p.photos.length > 0 ? '#000' : 'var(--bg-hover)', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {p.photos && p.photos.length > 0 ? (
-                           <img src={p.photos[0].photo_url.startsWith('http') ? p.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <img src={resolveStorageUrl(p.photos[0].photo_url)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                            <div style={{ color: 'var(--accent-primary)', fontSize: '1.2rem', fontWeight: 800 }}>
                              {p.name.charAt(0)}

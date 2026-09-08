@@ -127,7 +127,7 @@ const AcceptInvite: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)' }}>
           <div>
             <h2 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '1.5rem', fontWeight: 700 }}>Accept Invitation & Submit Proposal</h2>
-            <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Fill out the form below to create your account and submit your profile.</p>
+            <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Fill out the form below to submit your profile.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
             <button type="submit" form="accept-invite-form" className="btn btn-primary" disabled={loading || !token}>

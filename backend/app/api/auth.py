@@ -8,18 +8,43 @@ import random
 import os
 import httpx
 
-async def send_emailjs_otp(email: str, otp: str):
+DEV_OTP_BYPASS_ENABLED = os.getenv("ENVIRONMENT", "production").lower() != "production"
+
+async def send_emailjs_html(email: str, html_content: str):
+    """
+    Shared EmailJS sender used by both OTP and invitation emails, so both
+    paths behave identically: same config check, same response logging,
+    and callers can tell success from failure instead of it being silent.
+    """
     # Read env vars at call time (after load_dotenv has run in main.py)
     service_id = os.getenv("EMAILJS_SERVICE_ID", "")
     template_id = os.getenv("EMAILJS_TEMPLATE_ID", "")
     user_id = os.getenv("EMAILJS_PUBLIC_KEY", "")  # Public Key
     private_key = os.getenv("EMAILJS_PRIVATE_KEY", "")
-    
-    if not service_id or not template_id or not user_id:
-        print(f"--- EMAILJS NOT CONFIGURED. OTP FOR {email}: {otp} ---")
-        print(f"    service_id='{service_id}', template_id='{template_id}', user_id='{user_id}'")
-        return
 
+    if not service_id or not template_id or not user_id:
+        raise RuntimeError(
+            "EmailJS is not configured (missing EMAILJS_SERVICE_ID / EMAILJS_TEMPLATE_ID / EMAILJS_PUBLIC_KEY)"
+        )
+
+    url = "https://api.emailjs.com/api/v1.0/email/send"
+    payload = {
+        "service_id": service_id,
+        "template_id": template_id,
+        "user_id": user_id,
+        "accessToken": private_key,
+        "template_params": {
+            "email": email,
+            "html_content": html_content
+        }
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
+        print(f"--- EmailJS response status: {response.status_code}, body: {response.text} ---")
+        response.raise_for_status()
+
+async def send_emailjs_otp(email: str, otp: str):
     expiry_time = (datetime.utcnow() + timedelta(minutes=15)).strftime("%I:%M %p UTC")
 
     html_content = f"""
@@ -70,27 +95,18 @@ async def send_emailjs_otp(email: str, otp: str):
     </div>
     """
 
-    url = "https://api.emailjs.com/api/v1.0/email/send"
-    payload = {
-        "service_id": service_id,
-        "template_id": template_id,
-        "user_id": user_id,
-        "accessToken": private_key,
-        "template_params": {
-            "email": email,
-            "html_content": html_content
-        }
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
-            print(f"--- EmailJS response status: {response.status_code}, body: {response.text} ---")
-            response.raise_for_status()
-            print(f"--- OTP sent via EmailJS to {email} ---")
-        except Exception as e:
-            print(f"--- Failed to send OTP via EmailJS to {email}: {e}. OTP was: {otp} ---")
-            raise
+    try:
+        await send_emailjs_html(email, html_content)
+        print(f"--- OTP sent via EmailJS to {email} ---")
+    except RuntimeError as e:
+        if DEV_OTP_BYPASS_ENABLED:
+            print(f"--- EMAILJS NOT CONFIGURED. OTP FOR {email}: {otp} ---")
+        else:
+            print(f"--- EMAILJS NOT CONFIGURED. Unable to deliver OTP to {email}. ---")
+        return
+    except Exception as e:
+        print(f"--- Failed to send OTP via EmailJS to {email}: {e} ---")
+        raise
 
 
 
@@ -102,7 +118,7 @@ from ..models.vendor import Vendor
 from ..models.role import Role
 from ..models.otp import OTPVerification
 from ..models.audit_log import AuditLog
-from ..schemas.auth import UserCreate, OTPRequest, OTPVerify, Token, LoginRequest, InviteRequest, AcceptInviteRequest
+from ..schemas.auth import UserCreate, OTPRequest, OTPVerify, Token, LoginRequest, InviteRequest, AcceptInviteRequest, PasswordLoginRequest, SetPasswordRequest
 import uuid
 from ..models.proposal import Proposal, ProposalVersion
 
@@ -123,21 +139,21 @@ async def send_otp(req: OTPRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
         
     otp = str(random.randint(100000, 999999))
-    if req.email.startswith("dev"):
+    if DEV_OTP_BYPASS_ENABLED and req.email.startswith("dev"):
         otp = "123456" # Easier for dev testing
-        
+
     otp_hash = get_password_hash(otp)
     expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
+
     db.add(OTPVerification(email=req.email, otp_hash=otp_hash, expires_at=expires_at))
     db.commit()
-    
+
     # Send actual email
     try:
         await send_emailjs_otp(req.email, otp)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send OTP email: {str(e)}")
-    
+
     return {"message": "OTP sent successfully."}
 
 @router.post("/verify-otp")
@@ -158,7 +174,8 @@ def verify_otp(req: OTPVerify, db: Session = Depends(get_db)):
     if otp_record.attempts >= 3:
         raise HTTPException(status_code=400, detail="Too many attempts")
         
-    if not verify_password(req.otp, otp_record.otp_hash) and req.otp != "123456":
+    dev_bypass_ok = DEV_OTP_BYPASS_ENABLED and req.email.startswith("dev") and req.otp == "123456"
+    if not verify_password(req.otp, otp_record.otp_hash) and not dev_bypass_ok:
         otp_record.attempts += 1
         db.commit()
         raise HTTPException(status_code=400, detail="Incorrect OTP")
@@ -194,22 +211,61 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="User not found")
         
     otp = str(random.randint(100000, 999999))
-    if req.email.startswith("dev"):
+    if DEV_OTP_BYPASS_ENABLED and req.email.startswith("dev"):
         otp = "123456" # Easier for dev testing
-        
+
     otp_hash = get_password_hash(otp)
     expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
+
     db.add(OTPVerification(email=req.email, otp_hash=otp_hash, expires_at=expires_at))
     db.commit()
-    
+
     # Send actual email
     try:
         await send_emailjs_otp(req.email, otp)
     except Exception as e:
         pass # Handle silently for this mock
-    
+
     return {"message": "OTP sent."}
+
+@router.post("/login-password")
+def login_password(req: PasswordLoginRequest, db: Session = Depends(get_db)):
+    generic_error = HTTPException(status_code=401, detail="Incorrect email or password")
+
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user or not user.password_hash or not user.is_active:
+        raise generic_error
+
+    if not verify_password(req.password, user.password_hash):
+        raise generic_error
+
+    access_token = create_access_token(subject=user.email)
+    user.last_login_at = datetime.utcnow()
+    db.add(AuditLog(user_id=user.id, vendor_id=user.vendor_id, action="LOGIN_SUCCESS_PASSWORD"))
+    db.commit()
+
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "role": role.name if role else "USER",
+        "vendor_id": user.vendor_id
+    }
+
+@router.put("/me/password")
+def set_password(req: SetPasswordRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    if current_user.password_hash:
+        if not req.current_password or not verify_password(req.current_password, current_user.password_hash):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    current_user.password_hash = get_password_hash(req.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 @router.post("/invite")
 async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -252,46 +308,28 @@ async def invite_user(req: InviteRequest, db: Session = Depends(get_db), current
 
     # Use the new proposal domain for invitations
     invite_link = f"https://proposal.harsharoyal.in/accept-invite?token={token}"
-    print(f"--- INVITATION LINK FOR {req.email}: {invite_link} ---")
+    if DEV_OTP_BYPASS_ENABLED:
+        print(f"--- INVITATION LINK FOR {req.email}: {invite_link} ---")
     
-    # Send actual email via EmailJS
+    # Send actual email via EmailJS (shared sender used by OTP emails too)
+    html_content = f"""
+    <div style="font-family: sans-serif; padding: 20px;">
+      <h2>You've been invited to MAPP!</h2>
+      <p>Please click the link below to accept your invitation and complete your profile:</p>
+      <a href="{invite_link}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
+    </div>
+    """
+
     try:
-        # Since we don't have a specific template for invites, we can reuse the OTP function or write a small custom one
-        # To avoid duplicating code, we will make a quick EmailJS call here directly
-        service_id = os.getenv("EMAILJS_SERVICE_ID")
-        template_id = os.getenv("EMAILJS_TEMPLATE_ID")
-        user_id = os.getenv("EMAILJS_PUBLIC_KEY")
-        private_key = os.getenv("EMAILJS_PRIVATE_KEY")
-        
-        if service_id and template_id and user_id and private_key:
-            html_content = f"""
-            <div style="font-family: sans-serif; padding: 20px;">
-              <h2>You've been invited to MAPP!</h2>
-              <p>Please click the link below to accept your invitation and complete your profile:</p>
-              <a href="{invite_link}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
-            </div>
-            """
-            
-            url = "https://api.emailjs.com/api/v1.0/email/send"
-            payload = {
-                "service_id": service_id,
-                "template_id": template_id,
-                "user_id": user_id,
-                "accessToken": private_key,
-                "template_params": {
-                    "email": req.email,
-                    "html_content": html_content
-                }
-            }
-            
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
-                print(f"--- Invite EmailJS response: {response.status_code} ---")
+        await send_emailjs_html(req.email, html_content)
+        return {"message": "Invitation sent successfully", "email_sent": True}
     except Exception as e:
-        print(f"--- Failed to send invite email: {e} ---")
-    
-    return {"message": "Invitation sent successfully"}
+        print(f"--- Failed to send invite email to {req.email}: {e} ---")
+        return {
+            "message": "User invited, but the invitation email could not be sent. Share the invite link with them manually.",
+            "email_sent": False,
+            "invite_link": invite_link
+        }
 
 @router.post("/accept-invite")
 def accept_invite(req: AcceptInviteRequest, db: Session = Depends(get_db)):
@@ -381,7 +419,8 @@ def read_users_me(current_user: User = Depends(get_current_user), db: Session = 
         "role_id": current_user.role_id,
         "role": role.name if role else "USER",
         "is_active": current_user.is_active,
-        "phone": current_user.phone
+        "phone": current_user.phone,
+        "has_password": bool(current_user.password_hash)
     }
 
 @router.put("/me")

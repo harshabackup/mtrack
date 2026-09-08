@@ -19,13 +19,27 @@ api.interceptors.request.use(
   }
 );
 
+// Endpoints that legitimately return 401 as part of normal flow (unknown
+// account, wrong OTP/password, etc.) rather than an expired session -
+// these should surface their error message, not force a redirect/reload.
+const AUTH_FLOW_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/login-password',
+  '/api/v1/auth/send-otp',
+  '/api/v1/auth/verify-otp',
+  '/api/v1/auth/accept-invite',
+];
+
 // Add a response interceptor to handle token expiry
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
+    const requestUrl: string = error.config?.url || '';
+    const isAuthFlowRequest = AUTH_FLOW_PATHS.some((path) => requestUrl.includes(path));
+
+    if (error.response && error.response.status === 401 && !isAuthFlowRequest) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

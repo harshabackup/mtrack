@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import CompatibilitySection from '../../components/AI/CompatibilitySection';
+import { resolveStorageUrl } from '../../utils/storageUrl';
 
 const ProposalCompare = () => {
   const [searchParams] = useSearchParams();
@@ -102,7 +103,7 @@ const ProposalCompare = () => {
             <div style={{ textAlign: 'center', marginBottom: '24px', marginTop: '12px' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-hover)', margin: '0 auto 12px auto', overflow: 'hidden' }}>
                 {base.photos && base.photos.length > 0 ? (
-                  <img src={base.photos[0].photo_url.startsWith('http') ? base.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${base.photos[0].photo_url}`} alt={base.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={resolveStorageUrl(base.photos[0].photo_url)} alt={base.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{base.name.charAt(0)}</div>
                 )}
@@ -146,7 +147,7 @@ const ProposalCompare = () => {
                 <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-hover)', margin: '0 auto 12px auto', overflow: 'hidden' }}>
                     {other.photos && other.photos.length > 0 ? (
-                      <img src={other.photos[0].photo_url.startsWith('http') ? other.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${other.photos[0].photo_url}`} alt={other.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={resolveStorageUrl(other.photos[0].photo_url)} alt={other.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 800, color: 'var(--text-muted)' }}>{other.name.charAt(0)}</div>
                     )}

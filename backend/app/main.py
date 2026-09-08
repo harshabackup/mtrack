@@ -3,11 +3,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from .core.database import engine, Base
+from fastapi.responses import FileResponse
+from jose import jwt, JWTError
+from .core.database import engine, Base, SessionLocal
+from .core.security import SECRET_KEY, ALGORITHM
 from .models import user, proposal, match, role, vendor, otp, audit_log, ai
+from .models.user import User
 
 from .api import auth, proposals, matching, ai, astrology
 
@@ -43,7 +46,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+_STORAGE_ROOT = os.path.abspath("storage")
+
+@app.get("/storage/{file_path:path}")
+def serve_storage_file(file_path: str, token: str = Query(...)):
+    """
+    Serves uploaded proposal photos / PDFs / medical records.
+    Requires a valid JWT (as a query param, since <img>/<a> tags can't send
+    Authorization headers) and restricts access to files under the caller's
+    own vendor_id, mirroring the API-level vendor isolation.
+    """
+    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    db = SessionLocal()
+    try:
+        requesting_user = db.query(User).filter(User.email == email).first()
+    finally:
+        db.close()
+    if not requesting_user or not requesting_user.is_active:
+        raise credentials_exception
+
+    # Resolve and confirm the path stays within the storage root
+    full_path = os.path.abspath(os.path.join(_STORAGE_ROOT, file_path))
+    if os.path.commonpath([_STORAGE_ROOT, full_path]) != _STORAGE_ROOT:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    # Files are stored under "<vendor_id>/<proposal_id>/<filename>"
+    vendor_segment = file_path.split("/")[0]
+    if not requesting_user.vendor_id or vendor_segment != str(requesting_user.vendor_id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
+
+    if not os.path.isfile(full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(full_path)
 
 app.include_router(auth.router)
 app.include_router(proposals.router)

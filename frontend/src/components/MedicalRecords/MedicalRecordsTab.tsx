@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
+import { resolveStorageUrl } from '../../utils/storageUrl';
 
 interface MedicalRecord {
   id: number;
@@ -97,7 +98,7 @@ const MedicalRecordsTab: React.FC<MedicalRecordsTabProps> = ({ proposalId, recor
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <a href={record.record_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '6px', minWidth: 'auto' }} title="View">
+                <a href={resolveStorageUrl(record.record_url)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '6px', minWidth: 'auto' }} title="View">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </a>
                 <button className="btn btn-danger" style={{ padding: '6px', minWidth: 'auto' }} onClick={() => handleDelete(record.id)} title="Delete">

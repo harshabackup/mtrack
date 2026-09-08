@@ -254,10 +254,23 @@ async def upload_file(
         
     if file_type not in ["photo", "pdf", "medical_record"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Must be 'photo', 'pdf', or 'medical_record'")
-        
+
+    allowed_content_types = {
+        "photo": {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"},
+        "pdf": {"application/pdf"},
+        "medical_record": {"application/pdf", "image/jpeg", "image/png", "image/webp"},
+    }
+    if (file.content_type or "") not in allowed_content_types[file_type]:
+        raise HTTPException(status_code=400, detail=f"Unsupported content type for {file_type}: {file.content_type}")
+
+    MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
     file_bytes = await file.read()
-    filename = f"{current_user.vendor_id}/{proposal_id}/{uuid.uuid4().hex[:8]}_{file.filename}"
-    
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds maximum allowed size of 15MB")
+
+    safe_original_name = os.path.basename(file.filename or "file").replace("/", "_").replace("\\", "_")
+    filename = f"{current_user.vendor_id}/{proposal_id}/{uuid.uuid4().hex[:8]}_{safe_original_name}"
+
     from ..core.storage import upload_file_to_supabase
     url = upload_file_to_supabase(file_bytes, filename, file.content_type or "application/octet-stream")
         
@@ -326,7 +339,7 @@ def delete_medical_record(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     record = db.query(ProposalMedicalRecord).filter(ProposalMedicalRecord.id == record_id, ProposalMedicalRecord.proposal_id == proposal_id).first()
     
     if not record:
@@ -349,8 +362,9 @@ def extract_ocr_from_file(
 ):
     temp_dir = os.path.join("storage", "temp")
     os.makedirs(temp_dir, exist_ok=True)
-    
-    temp_filename = f"{uuid.uuid4()}_{file.filename}"
+
+    safe_original_name = os.path.basename(file.filename or "file").replace("/", "_").replace("\\", "_")
+    temp_filename = f"{uuid.uuid4()}_{safe_original_name}"
     file_path = os.path.join(temp_dir, temp_filename)
     
     try:
@@ -372,7 +386,7 @@ def trigger_ocr(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
         
     url = None
     mime_type = 'image/jpeg'
@@ -400,7 +414,7 @@ def add_discussion(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
         
     new_disc = ProposalDiscussion(
         proposal_id=proposal_id,
@@ -421,7 +435,7 @@ def add_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
         
     new_q = ProposalQuestion(
         proposal_id=proposal_id,
@@ -442,7 +456,7 @@ def add_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
         
     new_f = ProposalFeedback(
         proposal_id=proposal_id,
@@ -463,7 +477,7 @@ def update_discussion(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_discussion = db.query(ProposalDiscussion).filter(ProposalDiscussion.id == discussion_id, ProposalDiscussion.proposal_id == proposal_id).first()
     if not db_discussion:
         raise HTTPException(status_code=404, detail="Discussion not found")
@@ -486,7 +500,7 @@ def delete_discussion(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_discussion = db.query(ProposalDiscussion).filter(ProposalDiscussion.id == discussion_id, ProposalDiscussion.proposal_id == proposal_id).first()
     if not db_discussion:
         raise HTTPException(status_code=404, detail="Discussion not found")
@@ -503,7 +517,7 @@ def update_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_question = db.query(ProposalQuestion).filter(ProposalQuestion.id == question_id, ProposalQuestion.proposal_id == proposal_id).first()
     if not db_question:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -523,7 +537,7 @@ def delete_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_question = db.query(ProposalQuestion).filter(ProposalQuestion.id == question_id, ProposalQuestion.proposal_id == proposal_id).first()
     if not db_question:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -540,7 +554,7 @@ def update_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_feedback = db.query(ProposalFeedback).filter(ProposalFeedback.id == feedback_id, ProposalFeedback.proposal_id == proposal_id).first()
     if not db_feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
@@ -560,7 +574,7 @@ def delete_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vendor)
 ):
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_feedback = db.query(ProposalFeedback).filter(ProposalFeedback.id == feedback_id, ProposalFeedback.proposal_id == proposal_id).first()
     if not db_feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
@@ -577,7 +591,7 @@ def add_expense(
     current_user: User = Depends(require_vendor)
 ):
     from ..models.proposal import ProposalExpense
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     
     new_expense = ProposalExpense(
         proposal_id=proposal_id,
@@ -601,7 +615,7 @@ def update_expense(
     current_user: User = Depends(require_vendor)
 ):
     from ..models.proposal import ProposalExpense
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_expense = db.query(ProposalExpense).filter(ProposalExpense.id == expense_id, ProposalExpense.proposal_id == proposal_id).first()
     if not db_expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -622,7 +636,7 @@ def delete_expense(
     current_user: User = Depends(require_vendor)
 ):
     from ..models.proposal import ProposalExpense
-    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db)
+    db_proposal = get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
     db_expense = db.query(ProposalExpense).filter(ProposalExpense.id == expense_id, ProposalExpense.proposal_id == proposal_id).first()
     if not db_expense:
         raise HTTPException(status_code=404, detail="Expense not found")

@@ -4,6 +4,7 @@ import api from '../../services/api';
 import OCRReviewModal from '../../components/ocr/OCRReviewModal';
 import CustomDateTimePicker from '../../components/CustomDateTimePicker';
 import MedicalRecordsTab from '../../components/MedicalRecords/MedicalRecordsTab';
+import { resolveStorageUrl } from '../../utils/storageUrl';
 
 interface ProposalPhoto {
   id: number;
@@ -597,8 +598,6 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
   if (loading) return <div className="animate-in" style={{ padding: '40px', textAlign: 'center' }}><p>Loading...</p></div>;
   if (!proposal) return <div className="animate-in" style={{ padding: '40px', textAlign: 'center' }}><p>Proposal not found.</p></div>;
 
-  const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001';
-
   return (
     <>
       <div className="animate-in" style={{ paddingBottom: '60px' }}>
@@ -890,7 +889,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                 proposal.photos.map(photo => (
                   <div key={photo.id} style={{ position: 'relative' }}>
                     <img 
-                      src={photo.photo_url.startsWith('http') ? photo.photo_url : `${backendUrl}${photo.photo_url}`} 
+                      src={resolveStorageUrl(photo.photo_url)}
                       alt="Proposal" 
                       style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }} 
                     />
@@ -923,7 +922,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
               {proposal.pdf_url ? (
                 <div>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <a href={proposal.pdf_url.startsWith('http') ? proposal.pdf_url : `${backendUrl}${proposal.pdf_url}`} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ flex: 1 }}>View PDF</a>
+                    <a href={resolveStorageUrl(proposal.pdf_url)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ flex: 1 }}>View PDF</a>
                     <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => handleTriggerOCR('pdf')} disabled={ocrLoading}>
                       {ocrLoading ? 'Extracting...' : 'Smart Extract'}
                     </button>
@@ -1263,7 +1262,7 @@ Instagram: ${proposal.instagram_id || 'Not specified'}`);
                     <span style={{ fontSize: '0.875rem', textAlign: 'center', wordBreak: 'break-all', fontWeight: 500 }}>{record.record_name || 'Medical Record'}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(record.created_at).toLocaleDateString()}</span>
                     <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: 'auto' }}>
-                      <a href={record.record_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.8rem', display: 'flex', justifyContent: 'center' }}>View</a>
+                      <a href={resolveStorageUrl(record.record_url)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ flex: 1, padding: '4px', fontSize: '0.8rem', display: 'flex', justifyContent: 'center' }}>View</a>
                       <button onClick={() => handleDeleteMedicalRecord(record.id)} className="btn btn-danger" style={{ flex: 1, padding: '4px', fontSize: '0.8rem', display: 'flex', justifyContent: 'center', background: 'rgba(255,59,48,0.1)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.3)' }}>Delete</button>
                     </div>
                   </div>

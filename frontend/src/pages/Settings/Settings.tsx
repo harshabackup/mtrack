@@ -18,6 +18,7 @@ const Settings = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [hasPassword, setHasPassword] = useState(false);
 
   // Notifications State
   const [notifyEmail, setNotifyEmail] = useState(true);
@@ -33,13 +34,14 @@ const Settings = () => {
       setLoading(true);
       const response = await api.get('/api/v1/auth/me');
       const data = response.data;
-      
+
       setFirstName(data.first_name || '');
       setLastName(data.last_name || '');
       setEmail(data.email || '');
       setBio(data.bio || '');
       setAvatarUrl(data.avatar_url || '');
-      
+      setHasPassword(!!data.has_password);
+
       setNotifyEmail(data.notify_email ?? true);
       setNotifyNewProposals(data.notify_new_proposals ?? true);
       setNotifyMarketing(data.notify_marketing ?? false);
@@ -70,22 +72,24 @@ const Settings = () => {
       alert('New passwords do not match!');
       return;
     }
-    if (!currentPassword) {
+    if (hasPassword && !currentPassword) {
       alert('Current password is required.');
       return;
     }
 
     try {
-      await api.put('/api/v1/auth/me/security', {
-        current_password: currentPassword,
+      await api.put('/api/v1/auth/me/password', {
+        current_password: hasPassword ? currentPassword : undefined,
         new_password: newPassword
       });
-      alert('Password updated successfully! Please log in again.');
-      localStorage.removeItem('token');
-      navigate('/login');
-    } catch (error) {
+      alert(hasPassword ? 'Password updated successfully!' : 'Password set! You can now sign in with your email + password.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setHasPassword(true);
+    } catch (error: any) {
       console.error('Error updating password', error);
-      alert('Failed to update password. Please check your current password.');
+      alert(error.response?.data?.detail || 'Failed to update password.');
     }
   };
 
@@ -204,25 +208,32 @@ const Settings = () => {
 
           {activeTab === 'account' && (
             <div className="card animate-in">
-              <h3 style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>Account Security</h3>
-              
+              <h3 style={{ marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>Account Security</h3>
+              <p style={{ margin: '0 0 24px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {hasPassword
+                  ? 'Change your password below.'
+                  : 'Set a password so you can sign in directly without waiting for an email code every time.'}
+              </p>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {hasPassword && (
+                  <div className="form-group">
+                    <label>Current Password</label>
+                    <input type="password" className="input-field" placeholder="••••••••" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                  </div>
+                )}
                 <div className="form-group">
-                  <label>Current Password</label>
-                  <input type="password" className="input-field" placeholder="••••••••" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>New Password</label>
-                  <input type="password" className="input-field" placeholder="Enter new password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                  <label>{hasPassword ? 'New Password' : 'Password'}</label>
+                  <input type="password" className="input-field" placeholder="Enter password (min. 8 characters)" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Confirm Password</label>
-                  <input type="password" className="input-field" placeholder="Confirm new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                  <input type="password" className="input-field" placeholder="Confirm password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
-                <button className="btn btn-primary" onClick={handleUpdatePassword}>Update Password</button>
+                <button className="btn btn-primary" onClick={handleUpdatePassword}>{hasPassword ? 'Update Password' : 'Set Password'}</button>
               </div>
 
               <h4 style={{ marginTop: '48px', marginBottom: '16px', color: '#FF3B30' }}>Danger Zone</h4>

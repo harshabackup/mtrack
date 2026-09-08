@@ -46,8 +46,12 @@ const Users = () => {
     if (!inviteEmail) return;
     setInviting(true);
     try {
-      await api.post('/api/v1/auth/invite', { email: inviteEmail });
-      showMsg(`Invitation sent to ${inviteEmail}!`);
+      const response = await api.post('/api/v1/auth/invite', { email: inviteEmail });
+      if (response.data.email_sent === false) {
+        showMsg(`User created, but the email couldn't be sent. Use "Copy Link" in the table to share it manually.`, 'error');
+      } else {
+        showMsg(`Invitation sent to ${inviteEmail}!`);
+      }
       setInviteEmail('');
       fetchUsers();
     } catch (err: any) {

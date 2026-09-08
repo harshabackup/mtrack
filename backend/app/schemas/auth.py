@@ -13,6 +13,14 @@ class OTPRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
 
+class PasswordLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class SetPasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str
+
 class OTPVerify(BaseModel):
     email: EmailStr
     otp: str

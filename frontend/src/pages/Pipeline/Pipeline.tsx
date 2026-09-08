@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { resolveStorageUrl } from '../../utils/storageUrl';
 
 interface Proposal {
   id: number;
@@ -224,7 +225,7 @@ const Pipeline = () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '1rem'
                       }}>
                         {p.photos && p.photos.length > 0 ? (
-                           <img src={p.photos[0].photo_url.startsWith('http') ? p.photos[0].photo_url : `${import.meta.env.VITE_API_URL || 'http://localhost:8001'}${p.photos[0].photo_url}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <img src={resolveStorageUrl(p.photos[0].photo_url)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                            p.name.charAt(0)
                         )}
