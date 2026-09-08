@@ -204,6 +204,41 @@ async def chat_with_proposal_ai(
         raise HTTPException(status_code=500, detail=f"AI provider failed to respond: {e}")
 
 
+@router.post("/chat/general")
+async def chat_general_ai(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
+):
+    from ..ai.schemas import AIChatRequest
+    try:
+        chat_request = AIChatRequest(**request)
+    except Exception:
+        chat_request = AIChatRequest(message=request.get("message", ""))
+        
+    provider = _get_provider()
+    system_prompt = (
+        "You are a helpful matrimonial and matchmaking assistant. "
+        "Answer questions about matchmaking, matrimony profiles, astrology, compatibility, and meeting guidance. "
+        "Keep answers concise, supportive, and practical."
+    )
+    
+    history_str = ""
+    for msg in chat_request.history[-5:]:
+        prefix = "User: " if msg.role == "user" else "Assistant: "
+        history_str += f"{prefix}{msg.content}\n"
+        
+    prompt = f"Conversation History:\n{history_str}\nUser: {chat_request.message}\nAssistant:"
+    
+    try:
+        response_text = await provider.generate(prompt, system_prompt=system_prompt)
+        return {"response": response_text.strip()}
+    except Exception as e:
+        from ..ai.fallback_generator import generate_fallback_chat_reply
+        return {"response": generate_fallback_chat_reply(prompt, system_prompt)}
+
+
+
 
 def _get_provider():
     import os

@@ -163,12 +163,6 @@ const GlobalChatWidget: React.FC = () => {
   const handleSend = async () => {
     if (!input.trim()) return;
     
-    // In fallback mode without a selected proposal, we can't do anything because the old API requires a proposal ID
-    if (sessionId === -1 && !selectedProposal) {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Please restart your backend server to enable General Chat, or select a Proposal from the list.' }]);
-      return;
-    }
-    
     const userMsg = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
@@ -181,14 +175,27 @@ const GlobalChatWidget: React.FC = () => {
         const res = await api.post(`/api/v1/ai/chat/sessions/${sessionId}/messages`, { message: userMsg });
         setMessages(prev => [...prev, { role: 'ai', content: res.data.ai_message.content }]);
       } else if (selectedProposal) {
-        // Fallback mode — use old direct chat endpoint
+        // Proposal chat endpoint
         const res = await api.post(`/api/v1/ai/proposals/${selectedProposal}/chat`, {
           message: userMsg,
           history: messages.filter(m => !m.content.startsWith('—')).slice(-10).map(m => ({ role: m.role, content: m.content })),
         });
         setMessages(prev => [...prev, { role: 'ai', content: res.data.response }]);
       } else {
-        setMessages(prev => [...prev, { role: 'ai', content: 'Please restart your backend server to enable General Chat. The new AI features are not loaded yet.' }]);
+        // General chat endpoint
+        try {
+          const res = await api.post('/api/v1/ai/chat/general', {
+            message: userMsg,
+            history: messages.filter(m => !m.content.startsWith('—')).slice(-10).map(m => ({ role: m.role, content: m.content })),
+          });
+          setMessages(prev => [...prev, { role: 'ai', content: res.data.response }]);
+        } catch {
+          // If neither is available, provide helpful guidance
+          setMessages(prev => [...prev, { 
+            role: 'ai', 
+            content: "I'm ready to help! You can ask questions directly, or select a proposal from the dropdown above to view tailored profile insights." 
+          }]);
+        }
       }
     } catch (e: any) {
       const errMsg = e.response?.data?.detail || 'Sorry, I encountered an error. Please try again.';
