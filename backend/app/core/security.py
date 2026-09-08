@@ -20,6 +20,8 @@ if not SECRET_KEY:
               "set SECRET_KEY in your environment to secure JWT issuance.")
     SECRET_KEY = _FALLBACK_SECRET_KEY
 
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+
 # Default to 10 years (5,256,000 minutes) so login session never expires unless user explicitly logs out
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "5256000"))
 

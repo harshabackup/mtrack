@@ -87,7 +87,9 @@ def compare_proposals(
     base_proposal = ordered_proposals[0]
     
     from ..services.compatibility import calculate_compatibility
-    compatibility_matrix = calculate_compatibility(base_proposal, ordered_proposals[1:])
+    compatibility_matrix = calculate_compatibility(
+        base_proposal, ordered_proposals[1:], db=db, vendor_id=current_user.vendor_id
+    )
     
     serialized_proposals = [ProposalResponse.model_validate(p).model_dump() for p in ordered_proposals]
     

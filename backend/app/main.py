@@ -9,10 +9,10 @@ from fastapi.responses import FileResponse
 from jose import jwt, JWTError
 from .core.database import engine, Base, SessionLocal
 from .core.security import SECRET_KEY, ALGORITHM
-from .models import user, proposal, match, role, vendor, otp, audit_log, ai
+from .models import user, proposal, match, role, vendor, otp, audit_log, ai, interest
 from .models.user import User
 
-from .api import auth, proposals, matching, ai, astrology
+from .api import auth, proposals, matching, ai, astrology, interest as interest_api
 
 # Ensure storage directory exists
 os.makedirs("storage", exist_ok=True)
@@ -93,6 +93,7 @@ app.include_router(proposals.router)
 app.include_router(matching.router)
 app.include_router(ai.router)
 app.include_router(astrology.router)
+app.include_router(interest_api.router)
 
 @app.get("/")
 def read_root():

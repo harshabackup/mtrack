@@ -53,6 +53,7 @@ const CompareProposals = () => {
   
   const [matchData, setMatchData] = useState<MatchData>(initialMatchData);
   const [loadingMatch, setLoadingMatch] = useState(false);
+  const [autoCalculating, setAutoCalculating] = useState(false);
 
   useEffect(() => {
     const fetchProposals = async () => {
@@ -128,6 +129,20 @@ const CompareProposals = () => {
     }
   };
 
+  const handleAutoCalculate = async () => {
+    setAutoCalculating(true);
+    try {
+      const response = await api.post(`/api/matching/auto/${selectedP1}/${selectedP2}`);
+      setMatchData(response.data);
+      alert("Kundli matching auto-calculated from birth details!");
+    } catch (error: any) {
+      console.error("Error auto-calculating match", error);
+      alert(error?.response?.data?.detail || "Could not auto-calculate. Make sure both profiles have a date of birth.");
+    } finally {
+      setAutoCalculating(false);
+    }
+  };
+
   const p1Details = proposals.find(p => p.id === selectedP1);
   const p2Details = proposals.find(p => p.id === selectedP2);
 
@@ -187,8 +202,13 @@ const CompareProposals = () => {
 
       {selectedP1 !== 0 && selectedP2 !== 0 && selectedP1 !== selectedP2 && !loadingMatch && (
         <div className="card">
-          <h4 style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>Astrological Compatibility Score</h4>
-          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+            <h4 style={{ margin: 0 }}>Astrological Compatibility Score</h4>
+            <button className="btn btn-outline" onClick={handleAutoCalculate} disabled={autoCalculating}>
+              {autoCalculating ? 'Calculating…' : 'Auto-Calculate from Birth Details'}
+            </button>
+          </div>
+
           <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', flexWrap: 'wrap' }}>
             <div className="form-group" style={{ flex: '1 1 45%', marginBottom: 0 }}>
               <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Total Guna Milan Score</label>

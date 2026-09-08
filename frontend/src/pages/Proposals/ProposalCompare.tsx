@@ -4,6 +4,90 @@ import api from '../../services/api';
 import CompatibilitySection from '../../components/AI/CompatibilitySection';
 import { resolveStorageUrl } from '../../utils/storageUrl';
 
+const ContactReveal = ({ baseId, otherId }: { baseId: number; otherId: number }) => {
+  const [interestState, setInterestState] = useState<any>(null);
+  const [contact, setContact] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadInterest = async () => {
+    try {
+      const res = await api.get(`/api/v1/proposals/${baseId}/${otherId}/interest`);
+      setInterestState(res.data);
+      if (res.data.mutual) {
+        const contactRes = await api.get(`/api/v1/proposals/${baseId}/${otherId}/contact`);
+        setContact(contactRes.data);
+      } else {
+        setContact(null);
+      }
+    } catch (err) {
+      console.error('Error loading interest state', err);
+    }
+  };
+
+  useEffect(() => {
+    loadInterest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseId, otherId]);
+
+  if (!interestState) return null;
+
+  const smallerId = Math.min(baseId, otherId);
+  const baseSide = baseId === smallerId ? 1 : 2;
+  const otherSide = otherId === smallerId ? 1 : 2;
+  const baseInterested = baseSide === 1 ? interestState.interest_1 : interestState.interest_2;
+  const otherInterested = otherSide === 1 ? interestState.interest_1 : interestState.interest_2;
+
+  const toggleInterest = async (interested: boolean) => {
+    setBusy(true);
+    try {
+      await api.put(`/api/v1/proposals/${baseId}/${otherId}/interest`, { side: baseSide, interested });
+      await loadInterest();
+    } catch (err) {
+      console.error('Error updating interest', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: '16px', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)', background: 'var(--bg-hover)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={interestState.mutual ? '#34C759' : 'var(--text-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {interestState.mutual ? <path d="M17 11V7a5 5 0 0 0-10 0v4M5 11h14v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9z"></path> : <path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4"></path>}
+        </svg>
+        <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Contact Details</span>
+      </div>
+
+      {interestState.mutual && contact?.revealed ? (
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {contact.personal_number && <span>Personal: {contact.personal_number}</span>}
+          {contact.father_number && <span>Father: {contact.father_number}</span>}
+          {contact.mother_number && <span>Mother: {contact.mother_number}</span>}
+          {contact.instagram_id && <span>Instagram: {contact.instagram_id}</span>}
+        </div>
+      ) : (
+        <>
+          <p style={{ margin: '0 0 8px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Locked until both sides confirm interest.
+          </p>
+          <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', marginBottom: '8px' }}>
+            <span style={{ color: baseInterested ? '#34C759' : 'var(--text-muted)' }}>This side: {baseInterested ? 'Interested' : 'Pending'}</span>
+            <span style={{ color: otherInterested ? '#34C759' : 'var(--text-muted)' }}>Other side: {otherInterested ? 'Interested' : 'Pending'}</span>
+          </div>
+          <button
+            className="btn btn-outline"
+            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+            disabled={busy || baseInterested}
+            onClick={() => toggleInterest(true)}
+          >
+            {baseInterested ? 'Marked Interested' : 'Mark Interested'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
+
 const ProposalCompare = () => {
   const [searchParams] = useSearchParams();
   const ids = searchParams.get('ids');
@@ -159,19 +243,41 @@ const ProposalCompare = () => {
                 {/* Compatibility Matrix Score */}
                 <div style={{ background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)', padding: '16px', marginBottom: '24px', border: `1px solid ${scoreColor}40` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Compatibility</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Why this match</span>
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: scoreColor }}>{score}%</span>
                   </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {matchData?.breakdown.map((item: string, idx: number) => (
-                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={scoreColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item}</span>
-                      </div>
-                    ))}
-                  </div>
+
+                  {matchData?.factors && matchData.factors.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {matchData.factors.map((factor: any) => {
+                        const factorColor = factor.score >= 70 ? '#34C759' : factor.score >= 40 ? '#FF9500' : '#FF3B30';
+                        return (
+                          <div key={factor.key}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{factor.label}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{factor.weight_pct}% weight · {factor.score}%</span>
+                            </div>
+                            <div style={{ height: '6px', background: 'var(--border-color)', borderRadius: '999px', overflow: 'hidden', marginBottom: '4px' }}>
+                              <div style={{ height: '100%', width: `${factor.score}%`, background: factorColor, borderRadius: '999px' }}></div>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{factor.explanation}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {matchData?.breakdown.map((item: string, idx: number) => (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={scoreColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                <ContactReveal baseId={base.id} otherId={other.id} />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flexGrow: 1 }}>
                   <div>
