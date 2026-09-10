@@ -137,12 +137,17 @@ def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), cur
     # Auto-calculate Rasi and Nakshatra if missing but DOB and TOB are present
     if proposal_data.get('dob') and proposal_data.get('tob'):
         if not proposal_data.get('rasi') or not proposal_data.get('nakshatra'):
-            from ..services.astrology import calculate_nakshatra_and_rasi
-            rasi, nakshatra = calculate_nakshatra_and_rasi(proposal_data['dob'], proposal_data['tob'])
-            if rasi and not proposal_data.get('rasi'):
-                proposal_data['rasi'] = rasi
-            if nakshatra and not proposal_data.get('nakshatra'):
-                proposal_data['nakshatra'] = nakshatra
+            try:
+                from ..services.astrology import calculate_nakshatra_and_rasi
+                rasi, nakshatra = calculate_nakshatra_and_rasi(proposal_data['dob'], proposal_data['tob'])
+                if rasi and not proposal_data.get('rasi'):
+                    proposal_data['rasi'] = rasi
+                if nakshatra and not proposal_data.get('nakshatra'):
+                    proposal_data['nakshatra'] = nakshatra
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Could not auto-calculate astrology fields: {e}")
+
     
     db_proposal = Proposal(**proposal_data)
     db.add(db_proposal)

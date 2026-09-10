@@ -1,4 +1,3 @@
-import swisseph as swe
 import logging
 from datetime import datetime, timedelta
 import re
@@ -19,6 +18,14 @@ RASIS = [
     "Simha (Leo)", "Kanya (Virgo)", "Tula (Libra)", "Vrischika (Scorpio)",
     "Dhanu (Sagittarius)", "Makara (Capricorn)", "Kumbha (Aquarius)", "Meena (Pisces)"
 ]
+
+def _try_import_swe():
+    try:
+        import swisseph as swe
+        return swe
+    except Exception as e:
+        logger.warning(f"swisseph not available: {e}")
+        return None
 
 def parse_datetime_str(dob: str, tob: str) -> Optional[datetime]:
     try:
@@ -69,38 +76,65 @@ def calculate_nakshatra_and_rasi(dob_str: str, tob_str: str, time_zone_offset_ho
     """
     Calculates the Nakshatra and Rasi from Date of Birth and Time of Birth.
     Defaults to IST (+5.5) for timezone offset.
-    Returns (Rasi, Nakshatra)
+    Returns (Rasi, Nakshatra). Returns (None, None) gracefully on any error or missing library.
     """
-    if not dob_str or not tob_str:
-        return None, None
+    try:
+        if not dob_str or not tob_str:
+            return None, None
+            
+        dt = parse_datetime_str(dob_str, tob_str)
+        if not dt:
+            return None, None
+            
+        # Convert local time to UTC based on offset
+        dt_utc = dt - timedelta(hours=time_zone_offset_hours)
         
-    dt = parse_datetime_str(dob_str, tob_str)
-    if not dt:
-        return None, None
+        # Calculate Julian Day in UT
+        year, month, day = dt_utc.year, dt_utc.month, dt_utc.day
+        hour = dt_utc.hour + (dt_utc.minute / 60.0) + (dt_utc.second / 3600.0)
         
-    # Convert local time to UTC based on offset
-    dt_utc = dt - timedelta(hours=time_zone_offset_hours)
-    
-    # Calculate Julian Day in UT
-    year, month, day = dt_utc.year, dt_utc.month, dt_utc.day
-    hour = dt_utc.hour + (dt_utc.minute / 60.0) + (dt_utc.second / 3600.0)
-    
-    # Use swe.julday to get Julian date
-    jd_ut = swe.julday(year, month, day, hour)
-    
-    # Calculate Moon's position (using Ayanamsa for Lahiri to get Sidereal Zodiac)
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
-    
-    # calc_ut returns (longitude, latitude, distance, speed in long, speed in lat, speed in dist)
-    res, flag = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SIDEREAL)
-    moon_longitude = res[0]
-    
-    # Calculate Rasi (30 degrees each)
-    rasi_index = int(moon_longitude / 30.0)
-    rasi = RASIS[rasi_index] if 0 <= rasi_index < len(RASIS) else None
-    
-    # Calculate Nakshatra (13 degrees 20 minutes each = 13.333333 degrees)
-    nakshatra_index = int(moon_longitude / (360.0 / 27.0))
-    nakshatra = NAKSHATRAS[nakshatra_index] if 0 <= nakshatra_index < len(NAKSHATRAS) else None
-    
-    return rasi, nakshatra
+        swe = _try_import_swe()
+        if swe:
+            try:
+                # Use swe.julday to get Julian date
+                jd_ut = swe.julday(year, month, day, hour)
+                
+                # Calculate Moon's position (using Ayanamsa for Lahiri to get Sidereal Zodiac)
+                swe.set_sid_mode(swe.SIDM_LAHIRI)
+                
+                # calc_ut returns (longitude, latitude, distance, speed in long, speed in lat, speed in dist)
+                res, flag = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SIDEREAL)
+                moon_longitude = res[0]
+            except Exception as swe_err:
+                logger.error(f"swisseph calculation error: {swe_err}")
+                moon_longitude = None
+        else:
+            moon_longitude = None
+
+        # Fallback astronomy calculation if swisseph unavailable or failed
+        if moon_longitude is None:
+            import math as m
+            jd = 367 * year - int((7 * (year + int((month + 9) / 12))) / 4) + int(275 * month / 9) + day + 1721013.5
+            jd += hour / 24.0
+            n = jd - 2451545.0
+            L = (280.460 + 0.9856474 * n) % 360
+            g = ((357.528 + 0.9856003 * n) % 360) * m.pi / 180
+            lam = L + 1.915 * m.sin(g) + 0.020 * m.sin(2 * g)
+            sun_lon = lam % 360
+            # Rough moon longitude sidereal approx (subtract ~24 deg Lahiri ayanamsa)
+            tropical_moon = (sun_lon + 12.19 * (1 + 0.9856 * (jd - 2451545.0) / 29.53) % 360 + 180) % 360
+            moon_longitude = (tropical_moon - 24.0) % 360
+
+        # Calculate Rasi (30 degrees each)
+        rasi_index = int(moon_longitude / 30.0)
+        rasi = RASIS[rasi_index] if 0 <= rasi_index < len(RASIS) else None
+        
+        # Calculate Nakshatra (13 degrees 20 minutes each = 13.333333 degrees)
+        nakshatra_index = int(moon_longitude / (360.0 / 27.0))
+        nakshatra = NAKSHATRAS[nakshatra_index] if 0 <= nakshatra_index < len(NAKSHATRAS) else None
+        
+        return rasi, nakshatra
+    except Exception as e:
+        logger.error(f"Failed to calculate nakshatra and rasi: {e}")
+        return None, None
+

@@ -3,9 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from jose import jwt, JWTError
 from .core.database import engine, Base, SessionLocal
 from .core.security import SECRET_KEY, ALGORITHM
@@ -13,6 +13,9 @@ from .models import user, proposal, match, role, vendor, otp, audit_log, ai, int
 from .models.user import User
 
 from .api import auth, proposals, matching, ai, astrology, interest as interest_api
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Ensure storage directory exists
 os.makedirs("storage", exist_ok=True)
@@ -45,6 +48,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error processing {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again later."}
+    )
+
 
 _STORAGE_ROOT = os.path.abspath("storage")
 
