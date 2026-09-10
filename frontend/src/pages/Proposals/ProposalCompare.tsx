@@ -247,6 +247,15 @@ const ProposalCompare = () => {
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: scoreColor }}>{score}%</span>
                   </div>
 
+                  {matchData?.vetoed && (
+                    <div style={{ background: '#FF3B3020', border: '1px solid #FF3B3060', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: '12px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#FF3B3F', marginBottom: '4px' }}>⚠ Deal-breaker conflict</div>
+                      {matchData.veto_reasons.map((reason: string, idx: number) => (
+                        <div key={idx} style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{reason}</div>
+                      ))}
+                    </div>
+                  )}
+
                   {matchData?.factors && matchData.factors.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {matchData.factors.map((factor: any) => {

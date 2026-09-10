@@ -124,6 +124,14 @@ class ProposalBase(BaseModel):
     paadam: Optional[str] = None
     dosham: Optional[str] = None
     
+    # Lifestyle & Personal Background
+    diet: Optional[str] = None
+    mother_tongue: Optional[str] = None
+    family_type: Optional[str] = None
+    marital_status: Optional[str] = None
+    physical_status: Optional[str] = None
+    hobbies: Optional[str] = None
+
     # Education & Career
     education: Optional[str] = None
     college_details: Optional[str] = None
@@ -155,6 +163,33 @@ class ProposalBase(BaseModel):
     referred_by: Optional[str] = None
     expectations: Optional[str] = None
 
+class ProposalPreferenceBase(BaseModel):
+    min_age: Optional[int] = None
+    max_age: Optional[int] = None
+    min_height_cm: Optional[int] = None
+    max_height_cm: Optional[int] = None
+    preferred_cities: Optional[str] = None
+    preferred_religions: Optional[str] = None
+    preferred_castes: Optional[str] = None
+    preferred_diets: Optional[str] = None
+    preferred_education_levels: Optional[str] = None
+    preferred_family_types: Optional[str] = None
+    min_income_lpa: Optional[float] = None
+    must_be_working: Optional[bool] = None
+    manglik_preference: Optional[str] = None
+    deal_breakers: Optional[List[dict]] = None
+    notes: Optional[str] = None
+
+class ProposalPreferenceUpdate(ProposalPreferenceBase):
+    pass
+
+class ProposalPreferenceResponse(ProposalPreferenceBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    proposal_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
 class ProposalCreate(ProposalBase):
     created_at: Optional[datetime] = None
     photo_urls: Optional[List[str]] = []
@@ -174,3 +209,4 @@ class ProposalResponse(ProposalBase):
     questions: List[ProposalQuestionResponse] = []
     feedbacks: List[ProposalFeedbackResponse] = []
     expenses: List[ProposalExpenseResponse] = []
+    preference: Optional[ProposalPreferenceResponse] = None

@@ -2,13 +2,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from ..core.database import get_db
-from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback, ProposalMedicalRecord, ProposalVersion
+from ..models.proposal import Proposal, ProposalPhoto, ProposalDiscussion, ProposalQuestion, ProposalFeedback, ProposalMedicalRecord, ProposalVersion, ProposalPreference
 from ..schemas.proposal import (
     ProposalCreate, ProposalUpdate, ProposalResponse,
     ProposalDiscussionCreate, ProposalDiscussionUpdate, ProposalDiscussionResponse,
     ProposalQuestionCreate, ProposalQuestionUpdate, ProposalQuestionResponse,
     ProposalFeedbackCreate, ProposalFeedbackUpdate, ProposalFeedbackResponse,
-    ProposalExpenseCreate, ProposalExpenseUpdate, ProposalExpenseResponse
+    ProposalExpenseCreate, ProposalExpenseUpdate, ProposalExpenseResponse,
+    ProposalPreferenceUpdate, ProposalPreferenceResponse
 )
 from ..core.permissions import require_vendor, get_current_user
 from ..models.user import User
@@ -20,6 +21,7 @@ from ..services import ocr_service
 
 router = APIRouter(prefix="/api/v1/proposals", tags=["proposals"])
 
+@router.get("", response_model=List[ProposalResponse], include_in_schema=False)
 @router.get("/", response_model=List[ProposalResponse])
 def get_proposals(
     skip: int = 0, 
@@ -120,6 +122,7 @@ def get_my_profile(db: Session = Depends(get_db), current_user: User = Depends(r
         
     return proposal
 
+@router.post("", response_model=ProposalResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/", response_model=ProposalResponse, status_code=status.HTTP_201_CREATED)
 def create_proposal(proposal: ProposalCreate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
     proposal_data = proposal.model_dump(exclude_unset=True)
@@ -174,6 +177,35 @@ def get_vendor_proposal_or_404(proposal_id: int, vendor_id: int, db: Session, cu
 @router.get("/{proposal_id}", response_model=ProposalResponse)
 def get_proposal(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
     return get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
+
+@router.get("/{proposal_id}/preference", response_model=ProposalPreferenceResponse)
+def get_proposal_preference(proposal_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
+    get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
+    pref = db.query(ProposalPreference).filter(ProposalPreference.proposal_id == proposal_id).first()
+    if not pref:
+        pref = ProposalPreference(proposal_id=proposal_id)
+        db.add(pref)
+        db.commit()
+        db.refresh(pref)
+    return pref
+
+@router.put("/{proposal_id}/preference", response_model=ProposalPreferenceResponse)
+def update_proposal_preference(
+    proposal_id: int, payload: ProposalPreferenceUpdate,
+    db: Session = Depends(get_db), current_user: User = Depends(require_vendor)
+):
+    get_vendor_proposal_or_404(proposal_id, current_user.vendor_id, db, current_user)
+    pref = db.query(ProposalPreference).filter(ProposalPreference.proposal_id == proposal_id).first()
+    if not pref:
+        pref = ProposalPreference(proposal_id=proposal_id)
+        db.add(pref)
+
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(pref, key, value)
+
+    db.commit()
+    db.refresh(pref)
+    return pref
 
 @router.put("/{proposal_id}", response_model=ProposalResponse)
 def update_proposal(proposal_id: int, proposal: ProposalUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):

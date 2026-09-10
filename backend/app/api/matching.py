@@ -4,36 +4,46 @@ from ..core.database import get_db
 from ..models.match import ProposalMatch
 from ..models.proposal import Proposal
 from ..schemas.match import MatchCreate, MatchUpdate, MatchResponse
-from .auth import get_current_user
+from ..core.permissions import require_vendor
 from ..models.user import User
 
 router = APIRouter(prefix="/api/matching", tags=["matching"])
 
+
+def _get_scoped_proposal_pair(db: Session, proposal_1_id: int, proposal_2_id: int, vendor_id):
+    """Loads both proposals, scoped to the caller's vendor, or raises 404. Prevents one
+    vendor from reading or computing match data for another vendor's proposals."""
+    proposals = db.query(Proposal).filter(
+        Proposal.id.in_([proposal_1_id, proposal_2_id]), Proposal.vendor_id == vendor_id
+    ).all()
+    if len(proposals) != 2:
+        raise HTTPException(status_code=404, detail="One or both proposals not found or access denied")
+    return proposals
+
+
 @router.get("/{proposal_1_id}/{proposal_2_id}", response_model=MatchResponse)
 def get_match(
-    proposal_1_id: int, 
-    proposal_2_id: int, 
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    proposal_1_id: int,
+    proposal_2_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vendor)
 ):
+    _get_scoped_proposal_pair(db, proposal_1_id, proposal_2_id, current_user.vendor_id)
+
     match = db.query(ProposalMatch).filter(
         ((ProposalMatch.proposal_1_id == proposal_1_id) & (ProposalMatch.proposal_2_id == proposal_2_id)) |
         ((ProposalMatch.proposal_1_id == proposal_2_id) & (ProposalMatch.proposal_2_id == proposal_1_id))
     ).first()
-    
+
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     return match
 
 @router.post("/", response_model=MatchResponse, status_code=status.HTTP_201_CREATED)
-def create_match(match: MatchCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Verify proposals exist
-    p1 = db.query(Proposal).filter(Proposal.id == match.proposal_1_id).first()
-    p2 = db.query(Proposal).filter(Proposal.id == match.proposal_2_id).first()
-    
-    if not p1 or not p2:
-        raise HTTPException(status_code=404, detail="One or both proposals not found")
-        
+def create_match(match: MatchCreate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
+    # Verify proposals exist and belong to the caller's vendor
+    _get_scoped_proposal_pair(db, match.proposal_1_id, match.proposal_2_id, current_user.vendor_id)
+
     # Check if match already exists
     existing_match = db.query(ProposalMatch).filter(
         ((ProposalMatch.proposal_1_id == match.proposal_1_id) & (ProposalMatch.proposal_2_id == match.proposal_2_id)) |
@@ -52,7 +62,7 @@ def create_match(match: MatchCreate, db: Session = Depends(get_db), current_user
 @router.post("/auto/{proposal_1_id}/{proposal_2_id}", response_model=MatchResponse)
 def auto_calculate_match(
     proposal_1_id: int, proposal_2_id: int,
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(require_vendor)
 ):
     """Auto-calculates Ashtakoota (guna milan) matching from each proposal's dob/tob,
     then creates or updates the ProposalMatch record so it doesn't need manual entry."""
@@ -60,10 +70,9 @@ def auto_calculate_match(
         parse_dob_tob, calculate_birth_chart, calculate_ashtakoota, detect_manglik_dosha
     )
 
-    p1 = db.query(Proposal).filter(Proposal.id == proposal_1_id).first()
-    p2 = db.query(Proposal).filter(Proposal.id == proposal_2_id).first()
-    if not p1 or not p2:
-        raise HTTPException(status_code=404, detail="One or both proposals not found")
+    proposals = _get_scoped_proposal_pair(db, proposal_1_id, proposal_2_id, current_user.vendor_id)
+    p1 = next(p for p in proposals if p.id == proposal_1_id)
+    p2 = next(p for p in proposals if p.id == proposal_2_id)
     if not p1.dob or not p2.dob:
         raise HTTPException(status_code=400, detail="Both profiles need a date of birth to auto-calculate matching")
 
@@ -120,11 +129,14 @@ def auto_calculate_match(
 
 
 @router.put("/{match_id}", response_model=MatchResponse)
-def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_vendor)):
     db_match = db.query(ProposalMatch).filter(ProposalMatch.id == match_id).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
-        
+
+    # Verify both linked proposals belong to the caller's vendor before allowing edits.
+    _get_scoped_proposal_pair(db, db_match.proposal_1_id, db_match.proposal_2_id, current_user.vendor_id)
+
     update_data = match.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_match, key, value)

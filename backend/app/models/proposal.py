@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Float, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
@@ -99,6 +99,14 @@ class Proposal(Base):
     paadam = Column(String, nullable=True)
     dosham = Column(String, nullable=True)
     
+    # Lifestyle & Personal Background (used by the matching engine)
+    diet = Column(String, nullable=True)  # Vegetarian, Non-Vegetarian, Eggetarian, Vegan
+    mother_tongue = Column(String, nullable=True)
+    family_type = Column(String, nullable=True)  # Nuclear, Joint
+    marital_status = Column(String, nullable=True)  # Never Married, Divorced, Widowed
+    physical_status = Column(String, nullable=True)  # Normal, Physically Challenged
+    hobbies = Column(String, nullable=True)
+
     # Education & Career
     education = Column(String, nullable=True)
     college_details = Column(String, nullable=True)
@@ -140,6 +148,44 @@ class Proposal(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     is_my_profile = Column(Boolean, default=False)
+
+    preference = relationship("ProposalPreference", back_populates="proposal", uselist=False, cascade="all, delete-orphan")
+
+
+class ProposalPreference(Base):
+    """A proposal's own stated preferences for a partner, used by the matching engine
+    alongside (and independent of) the vendor-wide FamilyPreference list."""
+    __tablename__ = "proposal_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="CASCADE"), unique=True, nullable=False)
+
+    min_age = Column(Integer, nullable=True)
+    max_age = Column(Integer, nullable=True)
+    min_height_cm = Column(Integer, nullable=True)
+    max_height_cm = Column(Integer, nullable=True)
+
+    preferred_cities = Column(String, nullable=True)       # comma-separated
+    preferred_religions = Column(String, nullable=True)    # comma-separated
+    preferred_castes = Column(String, nullable=True)        # comma-separated
+    preferred_diets = Column(String, nullable=True)          # comma-separated
+    preferred_education_levels = Column(String, nullable=True)  # comma-separated
+    preferred_family_types = Column(String, nullable=True)   # comma-separated
+
+    min_income_lpa = Column(Float, nullable=True)
+    must_be_working = Column(Boolean, nullable=True)  # None = doesn't matter
+    manglik_preference = Column(String, nullable=True)  # "Yes", "No", "Doesn't Matter"
+
+    # Hard vetoes: JSON list of {"field": "...", "op": "eq|neq|max|min|in", "value": ...}
+    # A candidate that fails any of these is scored as incompatible regardless of other factors.
+    deal_breakers = Column(JSON, nullable=True)
+
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    proposal = relationship("Proposal", back_populates="preference")
+
 
 class ProposalExpense(Base):
     __tablename__ = "proposal_expenses"

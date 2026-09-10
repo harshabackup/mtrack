@@ -1,6 +1,204 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 
+interface PreferenceData {
+  id?: number;
+  min_age: number | '';
+  max_age: number | '';
+  preferred_cities: string;
+  preferred_religions: string;
+  preferred_castes: string;
+  preferred_diets: string;
+  preferred_education_levels: string;
+  preferred_family_types: string;
+  min_income_lpa: number | '';
+  must_be_working: boolean | null;
+  notes: string;
+  deal_breaker_diet: boolean;
+  deal_breaker_religion: boolean;
+  deal_breaker_min_income: boolean;
+}
+
+const initialPreference: PreferenceData = {
+  min_age: '', max_age: '', preferred_cities: '', preferred_religions: '', preferred_castes: '',
+  preferred_diets: '', preferred_education_levels: '', preferred_family_types: '', min_income_lpa: '',
+  must_be_working: null, notes: '', deal_breaker_diet: false, deal_breaker_religion: false, deal_breaker_min_income: false,
+};
+
+const PreferenceEditor = ({ proposalId, proposalName }: { proposalId: number; proposalName: string }) => {
+  const [pref, setPref] = useState<PreferenceData>(initialPreference);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/api/v1/proposals/${proposalId}/preference`);
+        const d = res.data;
+        const dealBreakers: any[] = d.deal_breakers || [];
+        setPref({
+          id: d.id,
+          min_age: d.min_age ?? '', max_age: d.max_age ?? '',
+          preferred_cities: d.preferred_cities || '', preferred_religions: d.preferred_religions || '',
+          preferred_castes: d.preferred_castes || '', preferred_diets: d.preferred_diets || '',
+          preferred_education_levels: d.preferred_education_levels || '', preferred_family_types: d.preferred_family_types || '',
+          min_income_lpa: d.min_income_lpa ?? '', must_be_working: d.must_be_working ?? null,
+          notes: d.notes || '',
+          deal_breaker_diet: dealBreakers.some(r => r.field === 'diet'),
+          deal_breaker_religion: dealBreakers.some(r => r.field === 'religion'),
+          deal_breaker_min_income: dealBreakers.some(r => r.field === 'income_lpa'),
+        });
+      } catch (err) {
+        console.error('Error loading preference', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [proposalId]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type, checked } = e.target as any;
+    let finalValue: any = value;
+    if (type === 'checkbox') finalValue = checked;
+    else if (name === 'min_age' || name === 'max_age' || name === 'min_income_lpa') finalValue = value === '' ? '' : Number(value);
+    else if (name === 'must_be_working') finalValue = value === '' ? null : value === 'true';
+    setPref(prev => ({ ...prev, [name]: finalValue }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const dealBreakers: any[] = [];
+      if (pref.deal_breaker_diet && pref.preferred_diets) {
+        const diets = pref.preferred_diets.split(',').map(d => d.trim()).filter(Boolean);
+        dealBreakers.push({ field: 'diet', op: 'in', value: diets });
+      }
+      if (pref.deal_breaker_religion && pref.preferred_religions) {
+        const religions = pref.preferred_religions.split(',').map(d => d.trim()).filter(Boolean);
+        dealBreakers.push({ field: 'religion', op: 'in', value: religions });
+      }
+      if (pref.deal_breaker_min_income && pref.min_income_lpa !== '') {
+        dealBreakers.push({ field: 'income_lpa', op: 'min', value: pref.min_income_lpa });
+      }
+
+      const payload = {
+        min_age: pref.min_age === '' ? null : pref.min_age,
+        max_age: pref.max_age === '' ? null : pref.max_age,
+        preferred_cities: pref.preferred_cities || null,
+        preferred_religions: pref.preferred_religions || null,
+        preferred_castes: pref.preferred_castes || null,
+        preferred_diets: pref.preferred_diets || null,
+        preferred_education_levels: pref.preferred_education_levels || null,
+        preferred_family_types: pref.preferred_family_types || null,
+        min_income_lpa: pref.min_income_lpa === '' ? null : pref.min_income_lpa,
+        must_be_working: pref.must_be_working,
+        notes: pref.notes || null,
+        deal_breakers: dealBreakers,
+      };
+      await api.put(`/api/v1/proposals/${proposalId}/preference`, payload);
+      alert(`Preferences saved for ${proposalName}`);
+    } catch (err) {
+      console.error('Error saving preference', err);
+      alert('Failed to save preferences.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="card" style={{ marginTop: '16px', background: 'var(--bg-subtle)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+        <strong style={{ fontSize: '0.875rem' }}>Partner Preferences ({proposalName})</strong>
+        <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>{expanded ? 'Collapse' : 'Edit'}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Min Age</label>
+              <input type="number" className="input-field" name="min_age" value={pref.min_age} onChange={handleChange} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Max Age</label>
+              <input type="number" className="input-field" name="max_age" value={pref.max_age} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.7rem' }}>Preferred Cities (comma-separated)</label>
+            <input className="input-field" name="preferred_cities" value={pref.preferred_cities} onChange={handleChange} placeholder="Chennai, Coimbatore" />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Preferred Religions</label>
+              <input className="input-field" name="preferred_religions" value={pref.preferred_religions} onChange={handleChange} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Preferred Castes</label>
+              <input className="input-field" name="preferred_castes" value={pref.preferred_castes} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Preferred Diets</label>
+              <input className="input-field" name="preferred_diets" value={pref.preferred_diets} onChange={handleChange} placeholder="Vegetarian" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Preferred Family Types</label>
+              <input className="input-field" name="preferred_family_types" value={pref.preferred_family_types} onChange={handleChange} placeholder="Nuclear" />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Min Income (LPA)</label>
+              <input type="number" className="input-field" name="min_income_lpa" value={pref.min_income_lpa} onChange={handleChange} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.7rem' }}>Must Be Working</label>
+              <select className="input-field" name="must_be_working" value={pref.must_be_working === null ? '' : String(pref.must_be_working)} onChange={handleChange}>
+                <option value="">Doesn't matter</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ padding: '10px', background: 'var(--bg-hover)', borderRadius: 'var(--radius-sm)' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Deal-breakers (hard veto if unmet)</label>
+            <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <input type="checkbox" name="deal_breaker_diet" checked={pref.deal_breaker_diet} onChange={handleChange} /> Diet must match preferred list
+            </label>
+            <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <input type="checkbox" name="deal_breaker_religion" checked={pref.deal_breaker_religion} onChange={handleChange} /> Religion must match preferred list
+            </label>
+            <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="checkbox" name="deal_breaker_min_income" checked={pref.deal_breaker_min_income} onChange={handleChange} /> Income must meet minimum
+            </label>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.7rem' }}>Notes</label>
+            <textarea className="input-field" style={{ minHeight: '60px' }} name="notes" value={pref.notes} onChange={handleChange} />
+          </div>
+
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ alignSelf: 'flex-start' }}>
+            {saving ? 'Saving…' : 'Save Preferences'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface Proposal {
   id: number;
   name: string;
@@ -171,6 +369,7 @@ const CompareProposals = () => {
               <p style={{ margin: 0 }}><strong>Dosham:</strong> {p1Details.dosham || '-'}</p>
             </div>
           )}
+          {p1Details && <PreferenceEditor proposalId={p1Details.id} proposalName={p1Details.name} />}
         </div>
         
         <div style={{ flex: '1 1 45%' }}>
@@ -191,6 +390,7 @@ const CompareProposals = () => {
               <p style={{ margin: 0 }}><strong>Dosham:</strong> {p2Details.dosham || '-'}</p>
             </div>
           )}
+          {p2Details && <PreferenceEditor proposalId={p2Details.id} proposalName={p2Details.name} />}
         </div>
       </div>
 

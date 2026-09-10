@@ -170,16 +170,28 @@ const AddProposal = () => {
     }
   };
 
+  const getDraftsDB = (): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('MappDraftsDB', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('draft_files')) {
+          db.createObjectStore('draft_files');
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  };
+
   const clearIndexedDBFiles = async () => {
     try {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open('MappDraftsDB', 1);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      const tx = db.transaction('draft_files', 'readwrite');
-      const store = tx.objectStore('draft_files');
-      store.clear();
+      const db = await getDraftsDB();
+      if (db.objectStoreNames.contains('draft_files')) {
+        const tx = db.transaction('draft_files', 'readwrite');
+        const store = tx.objectStore('draft_files');
+        store.clear();
+      }
     } catch (e) {
       console.error("Failed to clear DB", e);
     }
@@ -201,7 +213,7 @@ const AddProposal = () => {
         received_date: formData.received_date ? new Date(formData.received_date).toISOString() : null
       };
 
-      const response = await api.post('/api/v1/proposals', payload);
+      const response = await api.post('/api/v1/proposals/', payload);
       const newProposalId = response.data.id;
       
       // 2. Upload files to the backend
@@ -250,11 +262,7 @@ const AddProposal = () => {
     
     // Save files to IndexedDB
     try {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open('MappDraftsDB', 1);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
+      const db = await getDraftsDB();
       const tx = db.transaction('draft_files', 'readwrite');
       const store = tx.objectStore('draft_files');
       if (photosToUpload.length > 0) store.put(photosToUpload, 'photos');
