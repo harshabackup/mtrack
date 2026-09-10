@@ -244,8 +244,11 @@ const AddProposal = () => {
       
       showNotification("Proposal created successfully!", "success");
       setTimeout(() => navigate(`/vendor/proposals/${newProposalId}`), 1000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting proposal", error);
+      if (error.response) {
+        console.error("Server error details:", error.response.status, error.response.data);
+      }
       setIsSubmitting(false);
       showNotification("Failed to create proposal", "error");
     }
